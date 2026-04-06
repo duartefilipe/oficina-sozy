@@ -15,6 +15,14 @@ Servicos:
 - Frontend: `http://localhost`
 - Backend: `http://localhost:8080`
 - Postgres: `localhost:5432` (db: `moto_manager`)
+- API no frontend: usa `/api` via proxy Nginx para o backend (`backend:8080`)
+
+## Deploy no Portainer (Repository)
+
+- Use Stack via **Git Repository** apontando para este repo.
+- Branch: `main`
+- Compose path: `docker-compose.yml`
+- Nao use Web Editor para esse caso com `build: ./backend` e `build: ./frontend`.
 
 ## Observacoes
 
