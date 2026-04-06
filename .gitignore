@@ -1,0 +1,16 @@
+.DS_Store
+
+# Maven / Java
+.m2/
+**/target/
+
+# Node / Frontend
+**/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log

@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: moto-manager
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/moto_manager}
+    username: ${SPRING_DATASOURCE_USERNAME:dbuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:dbpassword}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
