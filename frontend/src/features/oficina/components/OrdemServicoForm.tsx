@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
+import { useProdutos } from "@/features/estoque/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCriarOrdemServico } from "@/features/oficina/hooks";
 import type { OrdemServicoRequestDto } from "@/types";
@@ -44,6 +45,8 @@ const defaultValues: FormValues = {
 
 export function OrdemServicoForm() {
   const criarMutacao = useCriarOrdemServico();
+  const produtosQuery = useProdutos();
+  const pecas = (produtosQuery.data ?? []).filter((p) => p.tipo === "PECA");
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues
@@ -66,22 +69,31 @@ export function OrdemServicoForm() {
 
       <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <input
-            className="rounded-md border border-slate-300 p-2"
-            placeholder="Placa da moto"
-            {...form.register("placaMoto")}
-          />
-          <input
-            className="rounded-md border border-slate-300 p-2"
-            placeholder="Cliente"
-            {...form.register("cliente")}
-          />
-          <select className="rounded-md border border-slate-300 p-2" {...form.register("status")}>
-            <option value="ABERTA">ABERTA</option>
-            <option value="EM_EXECUCAO">EM_EXECUCAO</option>
-            <option value="FINALIZADA">FINALIZADA</option>
-            <option value="PAGA">PAGA</option>
-          </select>
+          <div>
+            <label className="mb-1 block text-xs text-slate-600">Placa da moto</label>
+            <input
+              className="w-full rounded-md border border-slate-300 p-2"
+              placeholder="Placa da moto"
+              {...form.register("placaMoto")}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-600">Cliente</label>
+            <input
+              className="w-full rounded-md border border-slate-300 p-2"
+              placeholder="Cliente"
+              {...form.register("cliente")}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-600">Status da OS</label>
+            <select className="w-full rounded-md border border-slate-300 p-2" {...form.register("status")}>
+              <option value="ABERTA">ABERTA</option>
+              <option value="EM_EXECUCAO">EM_EXECUCAO</option>
+              <option value="FINALIZADA">FINALIZADA</option>
+              <option value="PAGA">PAGA</option>
+            </select>
+          </div>
         </div>
 
         <Tabs defaultValue="pecas">
@@ -102,25 +114,36 @@ export function OrdemServicoForm() {
             <div className="space-y-2">
               {pecasArray.fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  <input
-                    type="number"
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Produto ID"
-                    {...form.register(`pecasEstoque.${index}.produtoId`)}
-                  />
-                  <input
-                    type="number"
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Quantidade"
-                    {...form.register(`pecasEstoque.${index}.quantidade`)}
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Valor cobrado"
-                    {...form.register(`pecasEstoque.${index}.valorCobrado`)}
-                  />
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Peca do estoque</label>
+                    <select className="w-full rounded-md border border-slate-300 p-2" {...form.register(`pecasEstoque.${index}.produtoId`)}>
+                      <option value={0}>Selecione a peca</option>
+                      {pecas.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nome} (ID {p.id}) - estoque {p.qtdEstoque}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Quantidade</label>
+                    <input
+                      type="number"
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Quantidade"
+                      {...form.register(`pecasEstoque.${index}.quantidade`)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Valor cobrado</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Valor cobrado"
+                      {...form.register(`pecasEstoque.${index}.valorCobrado`)}
+                    />
+                  </div>
                   <button
                     type="button"
                     className="rounded bg-red-600 px-3 py-2 text-white"
@@ -144,18 +167,24 @@ export function OrdemServicoForm() {
             <div className="space-y-2">
               {servicosArray.fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  <input
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Descricao"
-                    {...form.register(`servicos.${index}.descricao`)}
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Valor"
-                    {...form.register(`servicos.${index}.valor`)}
-                  />
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Descricao do servico</label>
+                    <input
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Descricao"
+                      {...form.register(`servicos.${index}.descricao`)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Valor do servico</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Valor"
+                      {...form.register(`servicos.${index}.valor`)}
+                    />
+                  </div>
                   <button
                     type="button"
                     className="rounded bg-red-600 px-3 py-2 text-white"
@@ -185,25 +214,34 @@ export function OrdemServicoForm() {
             <div className="space-y-2">
               {custosExternosArray.fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  <input
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Descricao"
-                    {...form.register(`custosExternos.${index}.descricao`)}
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Custo aquisicao"
-                    {...form.register(`custosExternos.${index}.custoAquisicao`)}
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="rounded-md border border-slate-300 p-2"
-                    placeholder="Valor cobrado"
-                    {...form.register(`custosExternos.${index}.valorCobrado`)}
-                  />
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Descricao da compra externa</label>
+                    <input
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Descricao"
+                      {...form.register(`custosExternos.${index}.descricao`)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Custo de aquisicao</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Custo aquisicao"
+                      {...form.register(`custosExternos.${index}.custoAquisicao`)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Valor cobrado do cliente</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full rounded-md border border-slate-300 p-2"
+                      placeholder="Valor cobrado"
+                      {...form.register(`custosExternos.${index}.valorCobrado`)}
+                    />
+                  </div>
                   <button
                     type="button"
                     className="rounded bg-red-600 px-3 py-2 text-white"

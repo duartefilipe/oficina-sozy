@@ -1,4 +1,5 @@
 import { useFieldArray, useForm } from "react-hook-form";
+import { useProdutos } from "@/features/estoque/hooks";
 import { useCriarVendaRapida, useVendas, useAtualizarStatusVenda } from "@/features/vendas/hooks";
 
 interface VendaFormValues {
@@ -20,6 +21,8 @@ const defaultValues: VendaFormValues = {
 export function VendaRapidaForm() {
   const criarVenda = useCriarVendaRapida();
   const vendasQuery = useVendas();
+  const produtosQuery = useProdutos();
+  const produtos = produtosQuery.data ?? [];
   const form = useForm<VendaFormValues>({ defaultValues });
   const itensArray = useFieldArray({ control: form.control, name: "itens" });
 
@@ -36,15 +39,21 @@ export function VendaRapidaForm() {
 
       <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <input
-            className="rounded-md border border-slate-300 p-2"
-            placeholder="Cliente"
-            {...form.register("cliente")}
-          />
-          <select className="rounded-md border border-slate-300 p-2" {...form.register("status")}>
-            <option value="PENDENTE">PENDENTE</option>
-            <option value="PAGA">PAGA</option>
-          </select>
+          <div>
+            <label className="mb-1 block text-xs text-slate-600">Cliente</label>
+            <input
+              className="w-full rounded-md border border-slate-300 p-2"
+              placeholder="Cliente"
+              {...form.register("cliente")}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-600">Status da venda</label>
+            <select className="w-full rounded-md border border-slate-300 p-2" {...form.register("status")}>
+              <option value="PENDENTE">PENDENTE</option>
+              <option value="PAGA">PAGA</option>
+            </select>
+          </div>
         </div>
 
         <button
@@ -58,25 +67,36 @@ export function VendaRapidaForm() {
         <div className="space-y-2">
           {itensArray.fields.map((field, index) => (
             <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
-              <input
-                type="number"
-                className="rounded-md border border-slate-300 p-2"
-                placeholder="Produto ID"
-                {...form.register(`itens.${index}.produtoId`, { valueAsNumber: true })}
-              />
-              <input
-                type="number"
-                className="rounded-md border border-slate-300 p-2"
-                placeholder="Quantidade"
-                {...form.register(`itens.${index}.quantidade`, { valueAsNumber: true })}
-              />
-              <input
-                type="number"
-                step="0.01"
-                className="rounded-md border border-slate-300 p-2"
-                placeholder="Valor unitario"
-                {...form.register(`itens.${index}.valorUnitario`, { valueAsNumber: true })}
-              />
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Produto</label>
+                <select className="w-full rounded-md border border-slate-300 p-2" {...form.register(`itens.${index}.produtoId`, { valueAsNumber: true })}>
+                  <option value={0}>Selecione o produto</option>
+                  {produtos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} ({p.tipo}) - estoque {p.qtdEstoque}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Quantidade</label>
+                <input
+                  type="number"
+                  className="w-full rounded-md border border-slate-300 p-2"
+                  placeholder="Quantidade"
+                  {...form.register(`itens.${index}.quantidade`, { valueAsNumber: true })}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Valor unitario</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full rounded-md border border-slate-300 p-2"
+                  placeholder="Valor unitario"
+                  {...form.register(`itens.${index}.valorUnitario`, { valueAsNumber: true })}
+                />
+              </div>
               <button
                 type="button"
                 className="rounded bg-red-600 px-3 py-2 text-white"
