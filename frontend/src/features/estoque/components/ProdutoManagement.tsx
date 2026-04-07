@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useCriarProduto, useProdutos, useRemoverProduto } from "@/features/estoque/hooks";
+import { useAtualizarProduto, useCriarProduto, useProdutos, useRemoverProduto } from "@/features/estoque/hooks";
 import type { ProdutoTipo } from "@/types";
 
 interface ProdutoForm {
@@ -23,13 +24,25 @@ const defaultValues: ProdutoForm = {
 export function ProdutoManagement() {
   const produtos = useProdutos();
   const criar = useCriarProduto();
+  const atualizar = useAtualizarProduto();
   const remover = useRemoverProduto();
   const form = useForm<ProdutoForm>({ defaultValues });
+  const [produtoEditandoId, setProdutoEditandoId] = useState<number | null>(null);
 
   const onSubmit = (values: ProdutoForm) => {
-    criar.mutate(values, {
-      onSuccess: () => form.reset(defaultValues)
-    });
+    if (produtoEditandoId !== null) {
+      atualizar.mutate(
+        { produtoId: produtoEditandoId, payload: values },
+        {
+          onSuccess: () => {
+            setProdutoEditandoId(null);
+            form.reset(defaultValues);
+          }
+        }
+      );
+      return;
+    }
+    criar.mutate(values, { onSuccess: () => form.reset(defaultValues) });
   };
 
   return (
@@ -66,8 +79,20 @@ export function ProdutoManagement() {
           <input type="number" className="w-full rounded-md border border-slate-300 p-2" placeholder="Qtd estoque" {...form.register("qtdEstoque", { valueAsNumber: true })} />
         </div>
         <button type="submit" className="rounded bg-blue-700 px-4 py-2 text-white md:col-span-2">
-          Cadastrar
+          {produtoEditandoId !== null ? "Salvar edicao" : "Cadastrar"}
         </button>
+        {produtoEditandoId !== null ? (
+          <button
+            type="button"
+            className="rounded bg-slate-400 px-4 py-2 text-white md:col-span-2"
+            onClick={() => {
+              setProdutoEditandoId(null);
+              form.reset(defaultValues);
+            }}
+          >
+            Cancelar edicao
+          </button>
+        ) : null}
       </form>
 
       <div className="mt-5 space-y-2">
@@ -77,9 +102,28 @@ export function ProdutoManagement() {
               <p className="text-sm font-medium">{p.nome} ({p.tipo})</p>
               <p className="text-xs text-slate-500">ID: {p.id} | SKU: {p.sku || "-"} | Estoque: {p.qtdEstoque}</p>
             </div>
-            <button className="rounded bg-red-600 px-3 py-2 text-white" onClick={() => remover.mutate(p.id)}>
-              Remover
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded bg-amber-600 px-3 py-2 text-white"
+                onClick={() => {
+                  setProdutoEditandoId(p.id);
+                  form.reset({
+                    sku: p.sku ?? "",
+                    nome: p.nome,
+                    tipo: p.tipo,
+                    precoCusto: p.precoCusto,
+                    precoVenda: p.precoVenda,
+                    qtdEstoque: p.qtdEstoque
+                  });
+                }}
+              >
+                Editar
+              </button>
+              <button type="button" className="rounded bg-red-600 px-3 py-2 text-white" onClick={() => remover.mutate(p.id)}>
+                Remover
+              </button>
+            </div>
           </div>
         ))}
       </div>

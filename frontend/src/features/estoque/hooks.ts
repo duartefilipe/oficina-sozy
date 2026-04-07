@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { criarProduto, listarProdutos, removerProduto, type ProdutoPayload } from "@/features/estoque/api";
+import { atualizarProduto, criarProduto, listarProdutos, removerProduto, type ProdutoPayload } from "@/features/estoque/api";
 
 export function useProdutos() {
   return useQuery({
@@ -20,6 +20,15 @@ export function useRemoverProduto() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (produtoId: number) => removerProduto(produtoId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["produtos"] })
+  });
+}
+
+export function useAtualizarProduto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ produtoId, payload }: { produtoId: number; payload: ProdutoPayload }) =>
+      atualizarProduto(produtoId, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["produtos"] })
   });
 }

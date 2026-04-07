@@ -119,6 +119,56 @@ public class OrdemServicoService {
         return buscarPorId(id);
     }
 
+    @Transactional
+    public OrdemServicoResponse atualizar(Integer id, OrdemServicoRequest request) {
+        OrdemServico os = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "OS nao encontrada"));
+        validarAcessoGrupo(os);
+        if (ehStatusDeBaixa(os.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Nao e permitido editar OS finalizada/paga. Ajuste apenas o status."
+            );
+        }
+
+        os.setPlacaMoto(request.placaMoto());
+        os.setCliente(request.cliente());
+        os.setStatus(request.status());
+        ordemServicoRepository.save(os);
+
+        osPecaEstoqueRepository.deleteByOrdemServicoId(id);
+        osMaoObraRepository.deleteByOrdemServicoId(id);
+        osCustoExternoRepository.deleteByOrdemServicoId(id);
+
+        salvarPecas(os, request.pecasEstoque());
+        salvarServicos(os, request.servicos());
+        salvarCustosExternos(os, request.custosExternos());
+        recalcularTotal(os);
+
+        if (ehStatusDeBaixa(os.getStatus())) {
+            baixarEstoquePecas(id);
+        }
+        return buscarPorId(id);
+    }
+
+    @Transactional
+    public void remover(Integer id) {
+        OrdemServico os = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "OS nao encontrada"));
+        validarAcessoGrupo(os);
+        if (ehStatusDeBaixa(os.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Nao e permitido remover OS finalizada/paga para preservar consistencia de estoque."
+            );
+        }
+
+        osPecaEstoqueRepository.deleteByOrdemServicoId(id);
+        osMaoObraRepository.deleteByOrdemServicoId(id);
+        osCustoExternoRepository.deleteByOrdemServicoId(id);
+        ordemServicoRepository.delete(os);
+    }
+
     private void salvarPecas(OrdemServico os, List<OrdemServicoPecaRequest> itens) {
         if (itens == null || itens.isEmpty()) {
             return;

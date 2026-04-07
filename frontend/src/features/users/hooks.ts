@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { criarUsuario, listarUsuarios, removerUsuario } from "@/features/users/api";
-import type { UserRequestDto } from "@/types";
+import { atualizarUsuario, criarUsuario, listarUsuarios, removerUsuario } from "@/features/users/api";
+import type { UserRequestDto, UserUpdateRequestDto } from "@/types";
 
 export function useUsuarios() {
   return useQuery({
@@ -21,6 +21,15 @@ export function useRemoverUsuario() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (userId: number) => removerUsuario(userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["usuarios"] })
+  });
+}
+
+export function useAtualizarUsuario() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, payload }: { userId: number; payload: UserUpdateRequestDto }) =>
+      atualizarUsuario(userId, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["usuarios"] })
   });
 }

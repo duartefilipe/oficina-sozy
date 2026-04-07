@@ -11,11 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @RestController
 @RequestMapping("/api/ordens-servico")
@@ -46,6 +48,15 @@ public class OrdemServicoController {
         return ordemServicoService.buscarPorId(id);
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
+    public OrdemServicoResponse atualizar(
+            @PathVariable Integer id,
+            @Valid @RequestBody OrdemServicoRequest request
+    ) {
+        return ordemServicoService.atualizar(id, request);
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public OrdemServicoResponse atualizarStatus(
@@ -59,5 +70,12 @@ public class OrdemServicoController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public OrdemServicoResponse recalcular(@PathVariable Integer id) {
         return ordemServicoService.recalcular(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
+    public void remover(@PathVariable Integer id) {
+        ordemServicoService.remover(id);
     }
 }

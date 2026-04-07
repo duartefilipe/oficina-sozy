@@ -150,6 +150,15 @@ export interface UserResponseDto {
   ativo: boolean;
 }
 
+export interface UserUpdateRequestDto {
+  nome: string;
+  username: string;
+  password?: string;
+  role: UserRole;
+  createdByAdminId?: number;
+  ativo: boolean;
+}
+
 export interface RelatorioResumoDto {
   receitaTotal: number;
   despesaTotal: number;

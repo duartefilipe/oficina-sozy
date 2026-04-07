@@ -69,7 +69,18 @@ export function VendaRapidaForm() {
             <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
               <div>
                 <label className="mb-1 block text-xs text-slate-600">Produto</label>
-                <select className="w-full rounded-md border border-slate-300 p-2" {...form.register(`itens.${index}.produtoId`, { valueAsNumber: true })}>
+                <select
+                  className="w-full rounded-md border border-slate-300 p-2"
+                  {...form.register(`itens.${index}.produtoId`, { valueAsNumber: true })}
+                  onChange={(event) => {
+                    const produtoId = Number(event.target.value);
+                    form.setValue(`itens.${index}.produtoId`, produtoId);
+                    const produto = produtos.find((p) => p.id === produtoId);
+                    if (produto) {
+                      form.setValue(`itens.${index}.valorUnitario`, produto.precoVenda);
+                    }
+                  }}
+                >
                   <option value={0}>Selecione o produto</option>
                   {produtos.map((p) => (
                     <option key={p.id} value={p.id}>

@@ -1,7 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useCriarUsuario, useRemoverUsuario, useUsuarios } from "@/features/users/hooks";
+import { useAtualizarUsuario, useCriarUsuario, useRemoverUsuario, useUsuarios } from "@/features/users/hooks";
 import type { UserRole } from "@/types";
 
 const formSchema = z.object({
@@ -21,15 +22,35 @@ const defaultState: FormState = {
   role: "USUARIO"
 };
 
+interface EditFormState {
+  nome: string;
+  username: string;
+  password: string;
+  role: UserRole;
+  createdByAdminId?: number;
+  ativo: boolean;
+}
+
+const defaultEditState: EditFormState = {
+  nome: "",
+  username: "",
+  password: "",
+  role: "USUARIO",
+  ativo: true
+};
+
 export function UserManagement() {
   const userRole = (localStorage.getItem("auth_user_role") as UserRole | null) ?? "USUARIO";
   const usuarios = useUsuarios();
   const criar = useCriarUsuario();
+  const atualizar = useAtualizarUsuario();
   const remover = useRemoverUsuario();
+  const [editandoId, setEditandoId] = useState<number | null>(null);
   const form = useForm<FormState>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultState
   });
+  const editForm = useForm<EditFormState>({ defaultValues: defaultEditState });
 
   if (userRole === "USUARIO") {
     return (
@@ -42,12 +63,36 @@ export function UserManagement() {
 
   const admins = (usuarios.data ?? []).filter((u) => u.role === "ADMIN");
   const selectedRole = form.watch("role");
+  const selectedEditRole = editForm.watch("role");
 
   const onSubmit = (values: FormState) => {
     const payload = userRole === "ADMIN" ? { ...values, role: "USUARIO" as const } : values;
     criar.mutate(payload, {
       onSuccess: () => form.reset(defaultState)
     });
+  };
+
+  const onSubmitEdicao = (values: EditFormState) => {
+    if (!editandoId) return;
+    const payload =
+      userRole === "ADMIN"
+        ? { ...values, role: "USUARIO" as const, createdByAdminId: undefined }
+        : values;
+    atualizar.mutate(
+      {
+        userId: editandoId,
+        payload: {
+          ...payload,
+          password: payload.password || undefined
+        }
+      },
+      {
+        onSuccess: () => {
+          setEditandoId(null);
+          editForm.reset(defaultEditState);
+        }
+      }
+    );
   };
 
   return (
@@ -106,6 +151,52 @@ export function UserManagement() {
         {form.formState.errors.password ? <p className="text-xs text-red-600">{form.formState.errors.password.message}</p> : null}
       </form>
 
+      {editandoId ? (
+        <form className="mt-6 grid grid-cols-1 gap-2 rounded-md border border-slate-200 p-4 md:grid-cols-5" onSubmit={editForm.handleSubmit(onSubmitEdicao)}>
+          <p className="text-sm font-medium md:col-span-5">Editando usuario #{editandoId}</p>
+          <input className="rounded-md border border-slate-300 p-2" placeholder="Nome" {...editForm.register("nome")} />
+          <input className="rounded-md border border-slate-300 p-2" placeholder="Username" {...editForm.register("username")} />
+          <input className="rounded-md border border-slate-300 p-2" placeholder="Nova senha (opcional)" type="password" {...editForm.register("password")} />
+          <select className="rounded-md border border-slate-300 p-2" {...editForm.register("role")} disabled={userRole === "ADMIN"}>
+            {userRole === "SUPERADMIN" ? <option value="ADMIN">ADMIN</option> : null}
+            <option value="USUARIO">USUARIO</option>
+          </select>
+          <select
+            className="rounded-md border border-slate-300 p-2"
+            {...editForm.register("ativo", { setValueAs: (v) => v === "true" || v === true })}
+          >
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
+          {userRole === "SUPERADMIN" && selectedEditRole === "USUARIO" ? (
+            <select
+              className="rounded-md border border-slate-300 p-2 md:col-span-2"
+              {...editForm.register("createdByAdminId", {
+                setValueAs: (v) => (v === "" ? undefined : Number(v))
+              })}
+            >
+              <option value="">Selecione o ADMIN do grupo</option>
+              {admins.map((admin) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.nome} ({admin.username})
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <button type="submit" className="rounded bg-amber-600 px-4 py-2 text-white">Salvar alteracoes</button>
+          <button
+            type="button"
+            className="rounded bg-slate-500 px-4 py-2 text-white"
+            onClick={() => {
+              setEditandoId(null);
+              editForm.reset(defaultEditState);
+            }}
+          >
+            Cancelar
+          </button>
+        </form>
+      ) : null}
+
       <div className="mt-6 space-y-2">
         {(usuarios.data ?? []).map((u) => (
           <div key={u.id} className="flex items-center justify-between rounded-md border border-slate-200 p-3">
@@ -118,9 +209,28 @@ export function UserManagement() {
               </p>
             </div>
             {u.role !== "SUPERADMIN" ? (
-              <button className="rounded bg-red-600 px-3 py-2 text-white" onClick={() => remover.mutate(u.id)}>
-                Remover
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded bg-amber-600 px-3 py-2 text-white"
+                  onClick={() => {
+                    setEditandoId(u.id);
+                    editForm.reset({
+                      nome: u.nome,
+                      username: u.username,
+                      password: "",
+                      role: u.role,
+                      createdByAdminId: u.createdByAdminId,
+                      ativo: u.ativo
+                    });
+                  }}
+                >
+                  Editar
+                </button>
+                <button type="button" className="rounded bg-red-600 px-3 py-2 text-white" onClick={() => remover.mutate(u.id)}>
+                  Remover
+                </button>
+              </div>
             ) : null}
           </div>
         ))}

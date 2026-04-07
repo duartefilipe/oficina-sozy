@@ -23,6 +23,11 @@ export async function criarProduto(payload: ProdutoPayload) {
   return data;
 }
 
+export async function atualizarProduto(produtoId: number, payload: ProdutoPayload) {
+  const { data } = await api.put<ProdutoDto>(`/produtos/${produtoId}`, payload);
+  return data;
+}
+
 export async function removerProduto(produtoId: number) {
   await api.delete(`/produtos/${produtoId}`);
 }

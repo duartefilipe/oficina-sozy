@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  atualizarOrdemServico,
   atualizarStatusOrdemServico,
   buscarOrdemServico,
-  criarOrdemServico
+  criarOrdemServico,
+  listarOrdensServico,
+  removerOrdemServico
 } from "@/features/oficina/api";
 import type { OrdemServicoRequestDto, OrdemServicoStatusRequestDto } from "@/types";
 
@@ -12,7 +15,15 @@ export function useCriarOrdemServico() {
     mutationFn: (payload: OrdemServicoRequestDto) => criarOrdemServico(payload),
     onSuccess: (os) => {
       queryClient.setQueryData(["ordem-servico", os.id], os);
+      queryClient.invalidateQueries({ queryKey: ["ordens-servico"] });
     }
+  });
+}
+
+export function useOrdensServico() {
+  return useQuery({
+    queryKey: ["ordens-servico"],
+    queryFn: listarOrdensServico
   });
 }
 
@@ -31,5 +42,25 @@ export function useAtualizarStatusOrdemServico(id: number) {
     onSuccess: (os) => {
       queryClient.setQueryData(["ordem-servico", os.id], os);
     }
+  });
+}
+
+export function useAtualizarOrdemServico() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: OrdemServicoRequestDto }) =>
+      atualizarOrdemServico(id, payload),
+    onSuccess: (os) => {
+      queryClient.setQueryData(["ordem-servico", os.id], os);
+      queryClient.invalidateQueries({ queryKey: ["ordens-servico"] });
+    }
+  });
+}
+
+export function useRemoverOrdemServico() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => removerOrdemServico(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ordens-servico"] })
   });
 }

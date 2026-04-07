@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OsMaoObraRepository extends JpaRepository<OsMaoObra, Integer> {
     List<OsMaoObra> findByOrdemServicoId(Integer ordemServicoId);
+    void deleteByOrdemServicoId(Integer ordemServicoId);
 }

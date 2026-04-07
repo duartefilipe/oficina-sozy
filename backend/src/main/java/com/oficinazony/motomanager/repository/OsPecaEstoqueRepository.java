@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface OsPecaEstoqueRepository extends JpaRepository<OsPecaEstoque, Integer> {
     List<OsPecaEstoque> findByOrdemServicoId(Integer ordemServicoId);
     List<OsPecaEstoque> findByOrdemServicoIdIn(List<Integer> ordemServicoIds);
+    void deleteByOrdemServicoId(Integer ordemServicoId);
 }
