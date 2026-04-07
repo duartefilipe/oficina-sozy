@@ -5,6 +5,8 @@ import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoResponse;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoStatusRequest;
 import com.oficinazony.motomanager.service.OrdemServicoService;
 import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,18 +27,27 @@ public class OrdemServicoController {
         this.ordemServicoService = ordemServicoService;
     }
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
+    public List<OrdemServicoResponse> listar() {
+        return ordemServicoService.listar();
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public OrdemServicoResponse criar(@Valid @RequestBody OrdemServicoRequest request) {
         return ordemServicoService.criar(request);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public OrdemServicoResponse buscarPorId(@PathVariable Integer id) {
         return ordemServicoService.buscarPorId(id);
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public OrdemServicoResponse atualizarStatus(
             @PathVariable Integer id,
             @Valid @RequestBody OrdemServicoStatusRequest request
@@ -45,6 +56,7 @@ public class OrdemServicoController {
     }
 
     @PostMapping("/{id}/recalcular")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public OrdemServicoResponse recalcular(@PathVariable Integer id) {
         return ordemServicoService.recalcular(id);
     }

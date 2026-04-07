@@ -6,6 +6,7 @@ import com.oficinazony.motomanager.service.ProdutoService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,23 +28,27 @@ public class ProdutoController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public List<ProdutoResponse> listar() {
         return produtoService.listar();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public ProdutoResponse criar(@Valid @RequestBody ProdutoRequest request) {
         return produtoService.criar(request);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public ProdutoResponse atualizar(@PathVariable Integer id, @Valid @RequestBody ProdutoRequest request) {
         return produtoService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public void remover(@PathVariable Integer id) {
         produtoService.remover(id);
     }

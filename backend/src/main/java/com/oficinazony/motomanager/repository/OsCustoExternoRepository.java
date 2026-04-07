@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OsCustoExternoRepository extends JpaRepository<OsCustoExterno, Integer> {
     List<OsCustoExterno> findByOrdemServicoId(Integer ordemServicoId);
+    List<OsCustoExterno> findByOrdemServicoIdIn(List<Integer> ordemServicoIds);
 }

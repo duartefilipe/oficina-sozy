@@ -77,3 +77,93 @@ export interface ProdutoDto {
   renavam?: string;
   ano?: number;
 }
+
+export interface VendaItemRequestDto {
+  produtoId: number;
+  quantidade: number;
+  valorUnitario: number;
+}
+
+export interface VendaRequestDto {
+  cliente?: string;
+  status: VendaStatus;
+  itens: VendaItemRequestDto[];
+}
+
+export interface VendaItemResponseDto {
+  id: number;
+  produtoId: number;
+  produtoNome: string;
+  quantidade: number;
+  valorUnitario: number;
+}
+
+export interface VendaResponseDto {
+  id: number;
+  cliente?: string;
+  dataVenda: string;
+  valorTotal: number;
+  status: VendaStatus;
+  itens: VendaItemResponseDto[];
+}
+
+export interface VendaStatusRequestDto {
+  status: VendaStatus;
+}
+
+export type UserRole = "SUPERADMIN" | "ADMIN" | "USUARIO";
+
+export interface LoginRequestDto {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponseDto {
+  token: string;
+  userId: number;
+  nome: string;
+  username: string;
+  role: UserRole;
+}
+
+export interface MeResponseDto {
+  userId: number;
+  nome: string;
+  username: string;
+  role: UserRole;
+}
+
+export interface UserRequestDto {
+  nome: string;
+  username: string;
+  password: string;
+  role: UserRole;
+  createdByAdminId?: number;
+}
+
+export interface UserResponseDto {
+  id: number;
+  nome: string;
+  username: string;
+  role: UserRole;
+  createdByAdminId?: number;
+  ativo: boolean;
+}
+
+export interface RelatorioResumoDto {
+  receitaTotal: number;
+  despesaTotal: number;
+  resultadoLucroPrejuizo: number;
+  receitaVendas: number;
+  custoVendas: number;
+  lucroVendas: number;
+  receitaOrdensServico: number;
+  custoOrdensServico: number;
+  quantidadeVendas: number;
+  quantidadeConsertosMoto: number;
+  quantidadePecasVendidas: number;
+  quantidadeVendasPendentes: number;
+  quantidadeOsAbertas: number;
+  ticketMedioVendas: number;
+  ticketMedioOs: number;
+}

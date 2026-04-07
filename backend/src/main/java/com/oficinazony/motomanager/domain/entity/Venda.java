@@ -33,6 +33,9 @@ public class Venda {
     @Column(length = 20)
     private VendaStatus status;
 
+    @Column(name = "admin_group_id")
+    private Integer adminGroupId;
+
     public Integer getId() {
         return id;
     }
@@ -71,5 +74,13 @@ public class Venda {
 
     public void setStatus(VendaStatus status) {
         this.status = status;
+    }
+
+    public Integer getAdminGroupId() {
+        return adminGroupId;
+    }
+
+    public void setAdminGroupId(Integer adminGroupId) {
+        this.adminGroupId = adminGroupId;
     }
 }

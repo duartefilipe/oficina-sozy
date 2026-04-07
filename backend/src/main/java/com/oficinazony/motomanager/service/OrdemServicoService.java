@@ -14,11 +14,14 @@ import com.oficinazony.motomanager.domain.entity.OsMaoObra;
 import com.oficinazony.motomanager.domain.entity.OsPecaEstoque;
 import com.oficinazony.motomanager.domain.entity.Produto;
 import com.oficinazony.motomanager.domain.enums.OrdemServicoStatus;
+import com.oficinazony.motomanager.domain.enums.UserRole;
 import com.oficinazony.motomanager.repository.OrdemServicoRepository;
 import com.oficinazony.motomanager.repository.OsCustoExternoRepository;
 import com.oficinazony.motomanager.repository.OsMaoObraRepository;
 import com.oficinazony.motomanager.repository.OsPecaEstoqueRepository;
 import com.oficinazony.motomanager.repository.ProdutoRepository;
+import com.oficinazony.motomanager.security.AuthContextService;
+import com.oficinazony.motomanager.security.SecurityUser;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -34,19 +37,22 @@ public class OrdemServicoService {
     private final OsMaoObraRepository osMaoObraRepository;
     private final OsCustoExternoRepository osCustoExternoRepository;
     private final ProdutoRepository produtoRepository;
+    private final AuthContextService authContextService;
 
     public OrdemServicoService(
             OrdemServicoRepository ordemServicoRepository,
             OsPecaEstoqueRepository osPecaEstoqueRepository,
             OsMaoObraRepository osMaoObraRepository,
             OsCustoExternoRepository osCustoExternoRepository,
-            ProdutoRepository produtoRepository
+            ProdutoRepository produtoRepository,
+            AuthContextService authContextService
     ) {
         this.ordemServicoRepository = ordemServicoRepository;
         this.osPecaEstoqueRepository = osPecaEstoqueRepository;
         this.osMaoObraRepository = osMaoObraRepository;
         this.osCustoExternoRepository = osCustoExternoRepository;
         this.produtoRepository = produtoRepository;
+        this.authContextService = authContextService;
     }
 
     @Transactional
@@ -55,6 +61,7 @@ public class OrdemServicoService {
         os.setPlacaMoto(request.placaMoto());
         os.setCliente(request.cliente());
         os.setStatus(request.status());
+        os.setAdminGroupId(resolveAdminGroupId());
         os = ordemServicoRepository.save(os);
 
         salvarPecas(os, request.pecasEstoque());
@@ -72,13 +79,24 @@ public class OrdemServicoService {
     public OrdemServicoResponse buscarPorId(Integer id) {
         OrdemServico os = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "OS nao encontrada"));
+        validarAcessoGrupo(os);
         return montarResposta(os);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrdemServicoResponse> listar() {
+        SecurityUser current = authContextService.currentUser();
+        List<OrdemServico> ordens = current.getRole() == UserRole.SUPERADMIN
+                ? ordemServicoRepository.findAll()
+                : ordemServicoRepository.findByAdminGroupId(current.getAdminGroupId());
+        return ordens.stream().map(this::montarResposta).toList();
     }
 
     @Transactional
     public OrdemServicoResponse atualizarStatus(Integer id, OrdemServicoStatus novoStatus) {
         OrdemServico os = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "OS nao encontrada"));
+        validarAcessoGrupo(os);
 
         OrdemServicoStatus statusAnterior = os.getStatus();
         os.setStatus(novoStatus);
@@ -96,6 +114,7 @@ public class OrdemServicoService {
     public OrdemServicoResponse recalcular(Integer id) {
         OrdemServico os = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "OS nao encontrada"));
+        validarAcessoGrupo(os);
         recalcularTotal(os);
         return buscarPorId(id);
     }
@@ -215,5 +234,23 @@ public class OrdemServicoService {
 
     private boolean ehStatusDeBaixa(OrdemServicoStatus status) {
         return status == OrdemServicoStatus.FINALIZADA || status == OrdemServicoStatus.PAGA;
+    }
+
+    private Integer resolveAdminGroupId() {
+        SecurityUser current = authContextService.currentUser();
+        if (current.getRole() == UserRole.SUPERADMIN) {
+            return null;
+        }
+        return current.getAdminGroupId();
+    }
+
+    private void validarAcessoGrupo(OrdemServico os) {
+        SecurityUser current = authContextService.currentUser();
+        if (current.getRole() == UserRole.SUPERADMIN) {
+            return;
+        }
+        if (current.getAdminGroupId() == null || !current.getAdminGroupId().equals(os.getAdminGroupId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissao para acessar esta OS");
+        }
     }
 }

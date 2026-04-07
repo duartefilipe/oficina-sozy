@@ -36,6 +36,9 @@ public class OrdemServico {
     @Column(name = "valor_total", precision = 10, scale = 2)
     private BigDecimal valorTotal = BigDecimal.ZERO;
 
+    @Column(name = "admin_group_id")
+    private Integer adminGroupId;
+
     public Integer getId() {
         return id;
     }
@@ -82,5 +85,13 @@ public class OrdemServico {
 
     public void setValorTotal(BigDecimal valorTotal) {
         this.valorTotal = valorTotal;
+    }
+
+    public Integer getAdminGroupId() {
+        return adminGroupId;
+    }
+
+    public void setAdminGroupId(Integer adminGroupId) {
+        this.adminGroupId = adminGroupId;
     }
 }
