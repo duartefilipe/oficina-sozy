@@ -96,6 +96,38 @@ public class VendaService {
         return buscarPorId(id);
     }
 
+    @Transactional
+    public VendaResponse atualizar(Integer id, VendaRequest request) {
+        if (request.itens() == null || request.itens().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Venda deve conter itens");
+        }
+
+        Venda venda = vendaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Venda nao encontrada"));
+        validarAcessoGrupo(venda);
+
+        if (venda.getStatus() != VendaStatus.PENDENTE) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Somente vendas pendentes podem ser editadas"
+            );
+        }
+
+        venda.setCliente(request.cliente());
+        venda.setStatus(request.status());
+        vendaRepository.save(venda);
+
+        vendaItemRepository.deleteByVendaId(id);
+        salvarItens(venda, request.itens());
+        recalcularTotal(venda);
+
+        if (request.status() == VendaStatus.PAGA) {
+            baixarEstoque(id);
+        }
+
+        return buscarPorId(id);
+    }
+
     private void salvarItens(Venda venda, List<VendaItemRequest> itens) {
         for (VendaItemRequest itemRequest : itens) {
             Produto produto = produtoRepository.findById(itemRequest.produtoId())

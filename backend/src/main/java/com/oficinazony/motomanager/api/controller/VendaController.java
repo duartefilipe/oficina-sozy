@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -44,6 +45,12 @@ public class VendaController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public VendaResponse buscarPorId(@PathVariable Integer id) {
         return vendaService.buscarPorId(id);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
+    public VendaResponse atualizar(@PathVariable Integer id, @Valid @RequestBody VendaRequest request) {
+        return vendaService.atualizar(id, request);
     }
 
     @PatchMapping("/{id}/status")

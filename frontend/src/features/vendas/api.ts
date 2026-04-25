@@ -11,6 +11,11 @@ export async function listarVendas() {
   return data;
 }
 
+export async function atualizarVenda(vendaId: number, payload: VendaRequestDto) {
+  const { data } = await api.put<VendaResponseDto>(`/vendas/${vendaId}`, payload);
+  return data;
+}
+
 export async function atualizarStatusVenda(vendaId: number, payload: VendaStatusRequestDto) {
   const { data } = await api.patch<VendaResponseDto>(`/vendas/${vendaId}/status`, payload);
   return data;

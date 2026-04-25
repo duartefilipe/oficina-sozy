@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { atualizarStatusVenda, criarVendaRapida, listarVendas } from "@/features/vendas/api";
+import { atualizarStatusVenda, atualizarVenda, criarVendaRapida, listarVendas } from "@/features/vendas/api";
 import type { VendaRequestDto, VendaStatusRequestDto } from "@/types";
 
 export function useCriarVendaRapida() {
@@ -24,6 +24,17 @@ export function useAtualizarStatusVenda(vendaId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: VendaStatusRequestDto) => atualizarStatusVenda(vendaId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendas"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+    }
+  });
+}
+
+export function useAtualizarVenda() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ vendaId, payload }: { vendaId: number; payload: VendaRequestDto }) => atualizarVenda(vendaId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendas"] });
       queryClient.invalidateQueries({ queryKey: ["produtos"] });

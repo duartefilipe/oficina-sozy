@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { me } from "@/features/auth/api";
 import { ProdutoManagement } from "@/features/estoque/components/ProdutoManagement";
 import { LoginForm } from "@/features/auth/LoginForm";
+import { HomeDashboard } from "@/features/home/components/HomeDashboard";
 import { OrdemServicoForm } from "@/features/oficina/components/OrdemServicoForm";
 import { RelatorioResumo } from "@/features/relatorios/components/RelatorioResumo";
 import { UserManagement } from "@/features/users/components/UserManagement";
@@ -54,14 +55,18 @@ function App() {
           Sair
         </Button>
       </div>
-      <Tabs defaultValue="oficina" className="mx-auto max-w-5xl">
+      <Tabs defaultValue="home" className="mx-auto max-w-5xl">
         <TabsList>
+          <TabsTrigger value="home">Home</TabsTrigger>
           <TabsTrigger value="oficina">Oficina</TabsTrigger>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
           <TabsTrigger value="vendas">Vendas</TabsTrigger>
           {userRole !== "USUARIO" ? <TabsTrigger value="usuarios">Usuarios</TabsTrigger> : null}
           {userRole !== "USUARIO" ? <TabsTrigger value="relatorios">Relatorios</TabsTrigger> : null}
         </TabsList>
+        <TabsContent value="home">
+          <HomeDashboard />
+        </TabsContent>
         <TabsContent value="oficina">
           <OrdemServicoForm />
         </TabsContent>
