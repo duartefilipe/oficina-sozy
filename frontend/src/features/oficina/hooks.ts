@@ -16,6 +16,7 @@ export function useCriarOrdemServico() {
     onSuccess: (os) => {
       queryClient.setQueryData(["ordem-servico", os.id], os);
       queryClient.invalidateQueries({ queryKey: ["ordens-servico"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
     }
   });
 }
@@ -53,6 +54,7 @@ export function useAtualizarOrdemServico() {
     onSuccess: (os) => {
       queryClient.setQueryData(["ordem-servico", os.id], os);
       queryClient.invalidateQueries({ queryKey: ["ordens-servico"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
     }
   });
 }
@@ -61,6 +63,9 @@ export function useRemoverOrdemServico() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => removerOrdemServico(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ordens-servico"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ordens-servico"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+    }
   });
 }

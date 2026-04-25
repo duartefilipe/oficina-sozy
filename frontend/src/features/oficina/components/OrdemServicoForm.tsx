@@ -1,15 +1,29 @@
-import { useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { useCallback, useMemo, useState, type ChangeEvent } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useProdutos } from "@/features/estoque/hooks";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAtualizarOrdemServico, useCriarOrdemServico, useOrdensServico, useRemoverOrdemServico } from "@/features/oficina/hooks";
+import { fieldClass, labelClass } from "@/lib/form-styles";
+import { getApiErrorMessage } from "@/lib/utils";
 import type { OrdemServicoRequestDto, OrdemServicoResponseDto } from "@/types";
 
+const numNaoVazio = (msg: string) =>
+  z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number({ invalid_type_error: msg })
+  );
+
 const itemPecaSchema = z.object({
-  produtoId: z.coerce.number().int().positive(),
-  quantidade: z.coerce.number().int().positive(),
+  produtoId: z.coerce.number().int().positive("Selecione a peca na lista (ID 0 nao e valido)."),
+  quantidade: numNaoVazio("Informe a quantidade.").pipe(
+    z.number().int().positive("Quantidade deve ser maior que zero.")
+  ),
+  /* Enviado pelo form e alinhado ao precoVenda do produto no submit. */
   valorCobrado: z.coerce.number().nonnegative()
 });
 
@@ -25,7 +39,10 @@ const itemCustoExternoSchema = z.object({
 });
 
 const formSchema = z.object({
-  placaMoto: z.string().min(1),
+  placaMoto: z
+    .string()
+    .trim()
+    .min(1, "Informe a placa da moto (obrigatorio para salvar a OS)."),
   cliente: z.string().optional(),
   status: z.enum(["ABERTA", "EM_EXECUCAO", "FINALIZADA", "PAGA"]),
   pecasEstoque: z.array(itemPecaSchema),
@@ -54,14 +71,23 @@ export function OrdemServicoForm() {
   const [osEditandoId, setOsEditandoId] = useState<number | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues
+    defaultValues,
+    shouldUnregister: false
   });
 
   const pecasArray = useFieldArray({ control: form.control, name: "pecasEstoque" });
   const servicosArray = useFieldArray({ control: form.control, name: "servicos" });
   const custosExternosArray = useFieldArray({ control: form.control, name: "custosExternos" });
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = (raw: FormValues) => {
+    const values: FormValues = {
+      ...raw,
+      pecasEstoque: raw.pecasEstoque.map((linha) => {
+        const p = pecas.find((x) => x.id === linha.produtoId);
+        return p ? { ...linha, valorCobrado: p.precoVenda } : linha;
+      })
+    };
+
     if (osEditandoId) {
       atualizarMutacao.mutate(
         { id: osEditandoId, payload: values as OrdemServicoRequestDto },
@@ -79,28 +105,75 @@ export function OrdemServicoForm() {
     });
   };
 
-  const carregarParaEdicao = (os: OrdemServicoResponseDto) => {
-    setOsEditandoId(os.id);
-    form.reset({
-      placaMoto: os.placaMoto,
-      cliente: os.cliente ?? "",
-      status: os.status,
-      pecasEstoque: os.pecasEstoque.map((p) => ({
-        produtoId: p.produtoId,
-        quantidade: p.quantidade,
-        valorCobrado: p.valorCobrado
-      })),
-      servicos: os.servicos.map((s) => ({
-        descricao: s.descricao,
-        valor: s.valor
-      })),
-      custosExternos: os.custosExternos.map((c) => ({
-        descricao: c.descricao,
-        custoAquisicao: c.custoAquisicao,
-        valorCobrado: c.valorCobrado
-      }))
-    });
-  };
+  const carregarParaEdicao = useCallback(
+    (os: OrdemServicoResponseDto) => {
+      setOsEditandoId(os.id);
+      form.reset({
+        placaMoto: os.placaMoto,
+        cliente: os.cliente ?? "",
+        status: os.status,
+        pecasEstoque: os.pecasEstoque.map((p) => ({
+          produtoId: p.produtoId,
+          quantidade: p.quantidade,
+          valorCobrado: p.valorCobrado
+        })),
+        servicos: os.servicos.map((s) => ({
+          descricao: s.descricao,
+          valor: s.valor
+        })),
+        custosExternos: os.custosExternos.map((c) => ({
+          descricao: c.descricao,
+          custoAquisicao: c.custoAquisicao,
+          valorCobrado: c.valorCobrado
+        }))
+      });
+    },
+    [form]
+  );
+
+  const colunasOrdens = useMemo<ColumnDef<OrdemServicoResponseDto>[]>(
+    () => [
+      { accessorKey: "id", header: "OS", cell: ({ getValue }) => `#${getValue()}` },
+      { accessorKey: "placaMoto", header: "Placa" },
+      {
+        accessorKey: "cliente",
+        header: "Cliente",
+        cell: ({ getValue }) => (String(getValue() || "").trim() ? String(getValue()) : "—")
+      },
+      { accessorKey: "status", header: "Status" },
+      {
+        accessorKey: "valorTotal",
+        header: "Total",
+        cell: ({ getValue }) =>
+          new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(getValue() ?? 0))
+      },
+      {
+        id: "itens",
+        header: "Resumo itens",
+        enableSorting: false,
+        cell: ({ row }) =>
+          `${row.original.pecasEstoque.length} peças · ${row.original.servicos.length} serviços · ${row.original.custosExternos.length} ext.`
+      },
+      {
+        id: "acoes",
+        header: "Ações",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="warning" size="md" onClick={() => carregarParaEdicao(row.original)}>
+              Editar
+            </Button>
+            <Button type="button" variant="danger" size="md" onClick={() => removerMutacao.mutate(row.original.id)}>
+              Remover
+            </Button>
+          </div>
+        )
+      }
+    ],
+    [carregarParaEdicao, removerMutacao]
+  );
+
+  const fErr = form.formState.errors;
 
   return (
     <section className="mx-auto max-w-5xl rounded-lg border border-slate-200 bg-white p-6">
@@ -110,26 +183,58 @@ export function OrdemServicoForm() {
       </p>
 
       <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+        {(fErr.placaMoto || fErr.pecasEstoque || fErr.servicos || fErr.custosExternos) && form.formState.isSubmitted ? (
+          <div
+            className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
+            role="status"
+          >
+            <p className="mb-1 font-medium">Ajuste os campos para salvar:</p>
+            <ul className="list-inside list-disc space-y-1">
+              {fErr.placaMoto ? <li>{fErr.placaMoto.message as string}</li> : null}
+              {fErr.pecasEstoque
+                ? Array.isArray(fErr.pecasEstoque)
+                  ? fErr.pecasEstoque.map(
+                      (row, i) =>
+                        row &&
+                        (row.produtoId || row.quantidade || row.valorCobrado) && (
+                          <li key={i}>
+                            Pecas linha {i + 1}:{" "}
+                            {[row.produtoId?.message, row.quantidade?.message, row.valorCobrado?.message]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </li>
+                        )
+                    )
+                  : (fErr.pecasEstoque as { message?: string })?.message && (
+                      <li>{String((fErr.pecasEstoque as { message: string }).message)}</li>
+                    )
+                : null}
+            </ul>
+          </div>
+        ) : null}
+        {(criarMutacao.isError || atualizarMutacao.isError) && (
+          <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800" role="alert">
+            {getApiErrorMessage(criarMutacao.isError ? criarMutacao.error : atualizarMutacao.error)}
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
-            <label className="mb-1 block text-xs text-slate-600">Placa da moto</label>
-            <input
-              className="w-full rounded-md border border-slate-300 p-2"
-              placeholder="Placa da moto"
-              {...form.register("placaMoto")}
-            />
+            <label className={labelClass} htmlFor="os-placa">
+              Placa da moto
+            </label>
+            <input id="os-placa" className={fieldClass} placeholder="Placa da moto" {...form.register("placaMoto")} />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-600">Cliente</label>
-            <input
-              className="w-full rounded-md border border-slate-300 p-2"
-              placeholder="Cliente"
-              {...form.register("cliente")}
-            />
+            <label className={labelClass} htmlFor="os-cliente">
+              Cliente
+            </label>
+            <input id="os-cliente" className={fieldClass} placeholder="Cliente" {...form.register("cliente")} />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-600">Status da OS</label>
-            <select className="w-full rounded-md border border-slate-300 p-2" {...form.register("status")}>
+            <label className={labelClass} htmlFor="os-status">
+              Status da OS
+            </label>
+            <select id="os-status" className={fieldClass} {...form.register("status")}>
               <option value="ABERTA">ABERTA</option>
               <option value="EM_EXECUCAO">EM_EXECUCAO</option>
               <option value="FINALIZADA">FINALIZADA</option>
@@ -146,77 +251,96 @@ export function OrdemServicoForm() {
           </TabsList>
 
           <TabsContent value="pecas">
-            <button
+            <Button
               type="button"
-              className="mb-3 rounded bg-slate-900 px-3 py-2 text-sm text-white"
+              variant="dark"
+              size="md"
+              className="mb-3"
               onClick={() => pecasArray.append({ produtoId: 0, quantidade: 1, valorCobrado: 0 })}
             >
-              Adicionar peca
-            </button>
+              Adicionar peça
+            </Button>
+            <p className="mb-2 text-xs text-slate-600">
+              O preco de venda (e o total da linha) vem do cadastro do estoque. O estoque e baixado ao salvar a OS
+              (respeitando a quantidade abaixo).
+            </p>
             <div className="space-y-2">
-              {pecasArray.fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">Peca do estoque</label>
-                    <select
-                      className="w-full rounded-md border border-slate-300 p-2"
-                      {...form.register(`pecasEstoque.${index}.produtoId`, { valueAsNumber: true })}
-                      onChange={(event) => {
-                        const produtoId = Number(event.target.value);
-                        form.setValue(`pecasEstoque.${index}.produtoId`, produtoId);
-                        const produto = pecas.find((p) => p.id === produtoId);
-                        if (produto) {
-                          form.setValue(`pecasEstoque.${index}.valorCobrado`, produto.precoVenda);
-                        }
-                      }}
+              {pecasArray.fields.map((field, index) => {
+                const pid = form.watch(`pecasEstoque.${index}.produtoId` as const);
+                const sel = pecas.find((p) => p.id === pid);
+                const rProd = form.register(`pecasEstoque.${index}.produtoId`, { valueAsNumber: true });
+                return (
+                  <div key={field.id} className="grid grid-cols-1 items-end gap-2 md:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-600">Peca do estoque</label>
+                      <select
+                        className="w-full rounded-md border border-slate-300 p-2"
+                        name={rProd.name}
+                        onBlur={rProd.onBlur}
+                        ref={rProd.ref}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                          rProd.onChange(e);
+                          const produtoId = Number(e.target.value);
+                          const produto = pecas.find((p) => p.id === produtoId);
+                          if (produto) {
+                            form.setValue(`pecasEstoque.${index}.valorCobrado`, produto.precoVenda, { shouldValidate: true });
+                          }
+                        }}
+                      >
+                        <option value={0}>Selecione a peca</option>
+                        {pecas.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nome} (ID {p.id}) - estoque {p.qtdEstoque}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-600">Quantidade</label>
+                      <input
+                        type="number"
+                        className="w-full rounded-md border border-slate-300 p-2"
+                        placeholder="Quantidade"
+                        {...form.register(`pecasEstoque.${index}.quantidade`)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-600">Preco de venda / custo (estoque)</label>
+                      {sel ? (
+                        <p className="text-sm text-slate-800">
+                          Venda: R$ {sel.precoVenda.toFixed(2)} &middot; Custo: R$ {sel.precoCusto.toFixed(2)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-slate-500">Selecione a peca</p>
+                      )}
+                      <input
+                        type="hidden"
+                        {...form.register(`pecasEstoque.${index}.valorCobrado`, { valueAsNumber: true })}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded bg-red-600 px-3 py-2 text-white"
+                      onClick={() => pecasArray.remove(index)}
                     >
-                      <option value={0}>Selecione a peca</option>
-                      {pecas.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nome} (ID {p.id}) - estoque {p.qtdEstoque}
-                        </option>
-                      ))}
-                    </select>
+                      Remover
+                    </button>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">Quantidade</label>
-                    <input
-                      type="number"
-                      className="w-full rounded-md border border-slate-300 p-2"
-                      placeholder="Quantidade"
-                      {...form.register(`pecasEstoque.${index}.quantidade`)}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">Valor cobrado</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full rounded-md border border-slate-300 p-2"
-                      placeholder="Valor cobrado"
-                      {...form.register(`pecasEstoque.${index}.valorCobrado`)}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded bg-red-600 px-3 py-2 text-white"
-                    onClick={() => pecasArray.remove(index)}
-                  >
-                    Remover
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </TabsContent>
 
           <TabsContent value="servicos">
-            <button
+            <Button
               type="button"
-              className="mb-3 rounded bg-slate-900 px-3 py-2 text-sm text-white"
+              variant="dark"
+              size="md"
+              className="mb-3"
               onClick={() => servicosArray.append({ descricao: "", valor: 0 })}
             >
-              Adicionar servico
-            </button>
+              Adicionar serviço
+            </Button>
             <div className="space-y-2">
               {servicosArray.fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -251,9 +375,11 @@ export function OrdemServicoForm() {
           </TabsContent>
 
           <TabsContent value="externos" className="border-amber-300 bg-amber-50">
-            <button
+            <Button
               type="button"
-              className="mb-3 rounded bg-slate-900 px-3 py-2 text-sm text-white"
+              variant="dark"
+              size="md"
+              className="mb-3"
               onClick={() =>
                 custosExternosArray.append({
                   descricao: "",
@@ -263,7 +389,7 @@ export function OrdemServicoForm() {
               }
             >
               Adicionar compra externa
-            </button>
+            </Button>
             <div className="space-y-2">
               {custosExternosArray.fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
@@ -308,29 +434,32 @@ export function OrdemServicoForm() {
           </TabsContent>
         </Tabs>
 
-        <button
-          type="submit"
-          disabled={criarMutacao.isPending || atualizarMutacao.isPending}
-          className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-60"
-        >
-          {criarMutacao.isPending || atualizarMutacao.isPending
-            ? "Salvando..."
-            : osEditandoId
-              ? "Salvar edicao da OS"
-              : "Salvar OS"}
-        </button>
-        {osEditandoId ? (
-          <button
-            type="button"
-            className="ml-2 rounded bg-slate-500 px-4 py-2 text-white"
-            onClick={() => {
-              setOsEditandoId(null);
-              form.reset(defaultValues);
-            }}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="submit"
+            size="md"
+            disabled={criarMutacao.isPending || atualizarMutacao.isPending}
           >
-            Cancelar edicao
-          </button>
-        ) : null}
+            {criarMutacao.isPending || atualizarMutacao.isPending
+              ? "Salvando…"
+              : osEditandoId
+                ? "Salvar edição da OS"
+                : "Salvar OS"}
+          </Button>
+          {osEditandoId ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => {
+                setOsEditandoId(null);
+                form.reset(defaultValues);
+              }}
+            >
+              Cancelar edição
+            </Button>
+          ) : null}
+        </div>
 
         {criarMutacao.isSuccess ? (
           <p className="text-sm text-emerald-700">
@@ -340,27 +469,13 @@ export function OrdemServicoForm() {
       </form>
 
       <div className="mt-6">
-        <h3 className="mb-2 text-lg font-semibold">Lista de Ordens de Servico</h3>
-        <div className="space-y-2">
-          {(ordensQuery.data ?? []).map((os) => (
-            <div key={os.id} className="flex items-center justify-between rounded-md border border-slate-200 p-3">
-              <div>
-                <p className="text-sm font-medium">OS #{os.id} - {os.placaMoto} - {os.cliente || "Sem cliente"}</p>
-                <p className="text-xs text-slate-600">
-                  Status: {os.status} | Total: R$ {os.valorTotal} | Itens: {os.pecasEstoque.length} pecas, {os.servicos.length} servicos
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" className="rounded bg-amber-600 px-3 py-2 text-white" onClick={() => carregarParaEdicao(os)}>
-                  Editar
-                </button>
-                <button type="button" className="rounded bg-red-600 px-3 py-2 text-white" onClick={() => removerMutacao.mutate(os.id)}>
-                  Remover
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <h3 className="mb-3 text-lg font-semibold text-slate-800">Lista de ordens de serviço</h3>
+        <DataTable
+          columns={colunasOrdens}
+          data={ordensQuery.data ?? []}
+          searchPlaceholder="Buscar por placa, cliente, status, total…"
+          pageSize={10}
+        />
       </div>
     </section>
   );

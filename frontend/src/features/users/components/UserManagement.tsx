@@ -1,9 +1,13 @@
+import type { ColumnDef } from "@tanstack/react-table";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useAtualizarUsuario, useCriarUsuario, useRemoverUsuario, useUsuarios } from "@/features/users/hooks";
-import type { UserRole } from "@/types";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+import { fieldClass, labelClass } from "@/lib/form-styles";
+import type { UserResponseDto, UserRole } from "@/types";
 
 const formSchema = z.object({
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -65,6 +69,62 @@ export function UserManagement() {
   const selectedRole = form.watch("role");
   const selectedEditRole = editForm.watch("role");
 
+  const colunasUsuarios = useMemo<ColumnDef<UserResponseDto>[]>(
+    () => [
+      { accessorKey: "id", header: "ID" },
+      { accessorKey: "nome", header: "Nome" },
+      { accessorKey: "username", header: "Usuário" },
+      { accessorKey: "role", header: "Perfil" },
+      {
+        accessorKey: "createdByAdminId",
+        header: "Grupo (admin)",
+        cell: ({ getValue }) => (getValue() != null ? String(getValue()) : "—")
+      },
+      {
+        accessorKey: "ativo",
+        header: "Ativo",
+        cell: ({ getValue }) => ((getValue() as boolean) ? "Sim" : "Não")
+      },
+      {
+        id: "acoes",
+        header: "Ações",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const u = row.original;
+          if (u.role === "SUPERADMIN") {
+            return <span className="text-slate-500">—</span>;
+          }
+          return (
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="warning"
+                size="md"
+                onClick={() => {
+                  setEditandoId(u.id);
+                  editForm.reset({
+                    nome: u.nome,
+                    username: u.username,
+                    password: "",
+                    role: u.role,
+                    createdByAdminId: u.createdByAdminId,
+                    ativo: u.ativo
+                  });
+                }}
+              >
+                Editar
+              </Button>
+              <Button type="button" variant="danger" size="md" onClick={() => remover.mutate(u.id)}>
+                Remover
+              </Button>
+            </div>
+          );
+        }
+      }
+    ],
+    [editForm, remover]
+  );
+
   const onSubmit = (values: FormState) => {
     const payload = userRole === "ADMIN" ? { ...values, role: "USUARIO" as const } : values;
     criar.mutate(payload, {
@@ -102,76 +162,58 @@ export function UserManagement() {
         Superadmin cria ADMIN e USUARIO. Admin cria somente USUARIO.
       </p>
 
-      <form className="grid grid-cols-1 gap-2 md:grid-cols-5" onSubmit={form.handleSubmit(onSubmit)}>
-        <input
-          className="rounded-md border border-slate-300 p-2"
-          placeholder="Nome"
-          {...form.register("nome")}
-        />
-        <input
-          className="rounded-md border border-slate-300 p-2"
-          placeholder="Username"
-          {...form.register("username")}
-        />
-        <input
-          className="rounded-md border border-slate-300 p-2"
-          placeholder="Senha"
-          type="password"
-          {...form.register("password")}
-        />
-        <select
-          className="rounded-md border border-slate-300 p-2"
-          {...form.register("role")}
-          disabled={userRole === "ADMIN"}
-        >
-          {userRole === "SUPERADMIN" ? <option value="ADMIN">ADMIN</option> : null}
-          <option value="USUARIO">USUARIO</option>
-        </select>
-        <button type="submit" className="rounded bg-blue-700 px-4 py-2 text-white">
-          Criar
-        </button>
-
-        {userRole === "SUPERADMIN" && selectedRole === "USUARIO" ? (
-          <select
-            className="rounded-md border border-slate-300 p-2 md:col-span-2"
-            {...form.register("createdByAdminId", {
-              setValueAs: (v) => (v === "" ? undefined : Number(v))
-            })}
-          >
-            <option value="">Selecione o ADMIN do grupo</option>
-            {admins.map((admin) => (
-              <option key={admin.id} value={admin.id}>
-                {admin.nome} ({admin.username})
-              </option>
-            ))}
-          </select>
-        ) : null}
-        {form.formState.errors.nome ? <p className="text-xs text-red-600">{form.formState.errors.nome.message}</p> : null}
-        {form.formState.errors.username ? <p className="text-xs text-red-600">{form.formState.errors.username.message}</p> : null}
-        {form.formState.errors.password ? <p className="text-xs text-red-600">{form.formState.errors.password.message}</p> : null}
-      </form>
-
-      {editandoId ? (
-        <form className="mt-6 grid grid-cols-1 gap-2 rounded-md border border-slate-200 p-4 md:grid-cols-5" onSubmit={editForm.handleSubmit(onSubmitEdicao)}>
-          <p className="text-sm font-medium md:col-span-5">Editando usuario #{editandoId}</p>
-          <input className="rounded-md border border-slate-300 p-2" placeholder="Nome" {...editForm.register("nome")} />
-          <input className="rounded-md border border-slate-300 p-2" placeholder="Username" {...editForm.register("username")} />
-          <input className="rounded-md border border-slate-300 p-2" placeholder="Nova senha (opcional)" type="password" {...editForm.register("password")} />
-          <select className="rounded-md border border-slate-300 p-2" {...editForm.register("role")} disabled={userRole === "ADMIN"}>
+      <form
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <div>
+          <label className={labelClass} htmlFor="u-nome">
+            Nome
+          </label>
+          <input id="u-nome" className={fieldClass} placeholder="Nome" {...form.register("nome")} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="u-user">
+            Usuário
+          </label>
+          <input id="u-user" className={fieldClass} placeholder="Username" {...form.register("username")} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="u-pass">
+            Senha
+          </label>
+          <input
+            id="u-pass"
+            className={fieldClass}
+            placeholder="Senha"
+            type="password"
+            {...form.register("password")}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="u-role">
+            Perfil
+          </label>
+          <select id="u-role" className={fieldClass} {...form.register("role")} disabled={userRole === "ADMIN"}>
             {userRole === "SUPERADMIN" ? <option value="ADMIN">ADMIN</option> : null}
             <option value="USUARIO">USUARIO</option>
           </select>
-          <select
-            className="rounded-md border border-slate-300 p-2"
-            {...editForm.register("ativo", { setValueAs: (v) => v === "true" || v === true })}
-          >
-            <option value="true">Ativo</option>
-            <option value="false">Inativo</option>
-          </select>
-          {userRole === "SUPERADMIN" && selectedEditRole === "USUARIO" ? (
+        </div>
+        <div className="flex items-end">
+          <Button type="submit" className="w-full sm:w-auto" size="md">
+            Criar
+          </Button>
+        </div>
+
+        {userRole === "SUPERADMIN" && selectedRole === "USUARIO" ? (
+          <div className="md:col-span-2">
+            <label className={labelClass} htmlFor="u-grupo">
+              Grupo (admin)
+            </label>
             <select
-              className="rounded-md border border-slate-300 p-2 md:col-span-2"
-              {...editForm.register("createdByAdminId", {
+              id="u-grupo"
+              className={fieldClass}
+              {...form.register("createdByAdminId", {
                 setValueAs: (v) => (v === "" ? undefined : Number(v))
               })}
             >
@@ -182,58 +224,104 @@ export function UserManagement() {
                 </option>
               ))}
             </select>
-          ) : null}
-          <button type="submit" className="rounded bg-amber-600 px-4 py-2 text-white">Salvar alteracoes</button>
-          <button
-            type="button"
-            className="rounded bg-slate-500 px-4 py-2 text-white"
-            onClick={() => {
-              setEditandoId(null);
-              editForm.reset(defaultEditState);
-            }}
-          >
-            Cancelar
-          </button>
-        </form>
-      ) : null}
+          </div>
+        ) : null}
+        {(form.formState.errors.nome || form.formState.errors.username || form.formState.errors.password) ? (
+          <div className="col-span-full space-y-1">
+            {form.formState.errors.nome ? <p className="text-xs text-red-600">{form.formState.errors.nome.message}</p> : null}
+            {form.formState.errors.username ? <p className="text-xs text-red-600">{form.formState.errors.username.message}</p> : null}
+            {form.formState.errors.password ? <p className="text-xs text-red-600">{form.formState.errors.password.message}</p> : null}
+          </div>
+        ) : null}
+      </form>
 
-      <div className="mt-6 space-y-2">
-        {(usuarios.data ?? []).map((u) => (
-          <div key={u.id} className="flex items-center justify-between rounded-md border border-slate-200 p-3">
+      {editandoId ? (
+        <form
+          className="mt-6 space-y-3 rounded-md border border-slate-200 p-4"
+          onSubmit={editForm.handleSubmit(onSubmitEdicao)}
+        >
+          <p className="text-sm font-medium text-slate-800">Editando usuário #{editandoId}</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             <div>
-              <p className="text-sm font-medium">
-                {u.nome} ({u.username}) - {u.role}
-              </p>
-              <p className="text-xs text-slate-500">
-                Grupo admin: {u.createdByAdminId ?? "n/a"} | Ativo: {u.ativo ? "sim" : "nao"}
-              </p>
+              <label className={labelClass}>Nome</label>
+              <input className={fieldClass} placeholder="Nome" {...editForm.register("nome")} />
             </div>
-            {u.role !== "SUPERADMIN" ? (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="rounded bg-amber-600 px-3 py-2 text-white"
-                  onClick={() => {
-                    setEditandoId(u.id);
-                    editForm.reset({
-                      nome: u.nome,
-                      username: u.username,
-                      password: "",
-                      role: u.role,
-                      createdByAdminId: u.createdByAdminId,
-                      ativo: u.ativo
-                    });
-                  }}
+            <div>
+              <label className={labelClass}>Usuário</label>
+              <input className={fieldClass} placeholder="Username" {...editForm.register("username")} />
+            </div>
+            <div>
+              <label className={labelClass}>Nova senha (opcional)</label>
+              <input
+                className={fieldClass}
+                placeholder="Opcional"
+                type="password"
+                {...editForm.register("password")}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Perfil</label>
+              <select className={fieldClass} {...editForm.register("role")} disabled={userRole === "ADMIN"}>
+                {userRole === "SUPERADMIN" ? <option value="ADMIN">ADMIN</option> : null}
+                <option value="USUARIO">USUARIO</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Ativo</label>
+              <select
+                className={fieldClass}
+                {...editForm.register("ativo", { setValueAs: (v) => v === "true" || v === true })}
+              >
+                <option value="true">Ativo</option>
+                <option value="false">Inativo</option>
+              </select>
+            </div>
+            {userRole === "SUPERADMIN" && selectedEditRole === "USUARIO" ? (
+              <div>
+                <label className={labelClass}>Grupo (admin)</label>
+                <select
+                  className={fieldClass}
+                  {...editForm.register("createdByAdminId", {
+                    setValueAs: (v) => (v === "" ? undefined : Number(v))
+                  })}
                 >
-                  Editar
-                </button>
-                <button type="button" className="rounded bg-red-600 px-3 py-2 text-white" onClick={() => remover.mutate(u.id)}>
-                  Remover
-                </button>
+                  <option value="">Selecione o ADMIN do grupo</option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.nome} ({admin.username})
+                    </option>
+                  ))}
+                </select>
               </div>
             ) : null}
           </div>
-        ))}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant="warning" size="md">
+              Salvar alterações
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => {
+                setEditandoId(null);
+                editForm.reset(defaultEditState);
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      <div className="mt-6">
+        <h3 className="mb-3 text-base font-semibold text-slate-800">Usuários cadastrados</h3>
+        <DataTable
+          columns={colunasUsuarios}
+          data={usuarios.data ?? []}
+          searchPlaceholder="Buscar por nome, usuário, perfil…"
+          pageSize={10}
+        />
       </div>
     </section>
   );

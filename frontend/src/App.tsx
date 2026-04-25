@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { me } from "@/features/auth/api";
 import { ProdutoManagement } from "@/features/estoque/components/ProdutoManagement";
@@ -20,27 +21,27 @@ function App() {
   const userName = useMemo(() => meQuery.data?.nome ?? localStorage.getItem("auth_user_nome"), [meQuery.data]);
   const userRole = meQuery.data?.role ?? (localStorage.getItem("auth_user_role") as "SUPERADMIN" | "ADMIN" | "USUARIO" | null);
 
+  useEffect(() => {
+    if (!token || !meQuery.isError) return;
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user_id");
+    localStorage.removeItem("auth_user_nome");
+    localStorage.removeItem("auth_username");
+    localStorage.removeItem("auth_user_role");
+    setToken(null);
+  }, [token, meQuery.isError]);
+
   if (!token) {
     return <LoginForm onSuccess={() => setToken(localStorage.getItem("auth_token"))} />;
   }
 
-  useEffect(() => {
-    if (meQuery.isError) {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user_id");
-      localStorage.removeItem("auth_user_nome");
-      localStorage.removeItem("auth_username");
-      localStorage.removeItem("auth_user_role");
-      setToken(null);
-    }
-  }, [meQuery.isError]);
-
   return (
     <main className="min-h-screen p-6">
-      <div className="mx-auto mb-4 flex max-w-5xl items-center justify-between rounded bg-slate-900 px-4 py-2 text-white">
-        <span>Logado como: {userName || "Usuario"}</span>
-        <button
-          className="rounded bg-slate-700 px-3 py-1"
+      <div className="mx-auto mb-4 flex max-w-5xl items-center justify-between gap-2 rounded border border-slate-700 bg-slate-900 px-4 py-2.5 text-white shadow-sm">
+        <span className="text-sm font-medium">Logado como: {userName || "Usuario"}</span>
+        <Button
+          variant="secondary"
+          size="md"
           onClick={() => {
             localStorage.removeItem("auth_token");
             localStorage.removeItem("auth_user_id");
@@ -51,7 +52,7 @@ function App() {
           }}
         >
           Sair
-        </button>
+        </Button>
       </div>
       <Tabs defaultValue="oficina" className="mx-auto max-w-5xl">
         <TabsList>

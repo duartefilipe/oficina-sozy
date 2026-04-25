@@ -6,7 +6,10 @@ export function useCriarVendaRapida() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: VendaRequestDto) => criarVendaRapida(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vendas"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendas"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+    }
   });
 }
 
@@ -21,6 +24,9 @@ export function useAtualizarStatusVenda(vendaId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: VendaStatusRequestDto) => atualizarStatusVenda(vendaId, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vendas"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendas"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+    }
   });
 }

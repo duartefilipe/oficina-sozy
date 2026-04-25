@@ -23,7 +23,12 @@ import com.oficinazony.motomanager.repository.ProdutoRepository;
 import com.oficinazony.motomanager.security.AuthContextService;
 import com.oficinazony.motomanager.security.SecurityUser;
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,14 +69,11 @@ public class OrdemServicoService {
         os.setAdminGroupId(resolveAdminGroupId());
         os = ordemServicoRepository.save(os);
 
+        aplicarMudancaEstoquePecas(Map.of(), agregarPecasPorProdutoRequest(request.pecasEstoque()));
         salvarPecas(os, request.pecasEstoque());
         salvarServicos(os, request.servicos());
         salvarCustosExternos(os, request.custosExternos());
         recalcularTotal(os);
-
-        if (ehStatusDeBaixa(os.getStatus())) {
-            baixarEstoquePecas(os.getId());
-        }
         return buscarPorId(os.getId());
     }
 
@@ -98,13 +100,8 @@ public class OrdemServicoService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "OS nao encontrada"));
         validarAcessoGrupo(os);
 
-        OrdemServicoStatus statusAnterior = os.getStatus();
         os.setStatus(novoStatus);
         ordemServicoRepository.save(os);
-
-        if (!ehStatusDeBaixa(statusAnterior) && ehStatusDeBaixa(novoStatus)) {
-            baixarEstoquePecas(id);
-        }
 
         recalcularTotal(os);
         return buscarPorId(id);
@@ -131,6 +128,9 @@ public class OrdemServicoService {
             );
         }
 
+        List<OsPecaEstoque> linhasPecasAntes = osPecaEstoqueRepository.findByOrdemServicoId(id);
+        aplicarMudancaEstoquePecas(agregarPecasPorProdutoEntidades(linhasPecasAntes), agregarPecasPorProdutoRequest(request.pecasEstoque()));
+
         os.setPlacaMoto(request.placaMoto());
         os.setCliente(request.cliente());
         os.setStatus(request.status());
@@ -144,10 +144,6 @@ public class OrdemServicoService {
         salvarServicos(os, request.servicos());
         salvarCustosExternos(os, request.custosExternos());
         recalcularTotal(os);
-
-        if (ehStatusDeBaixa(os.getStatus())) {
-            baixarEstoquePecas(id);
-        }
         return buscarPorId(id);
     }
 
@@ -162,6 +158,9 @@ public class OrdemServicoService {
                     "Nao e permitido remover OS finalizada/paga para preservar consistencia de estoque."
             );
         }
+
+        List<OsPecaEstoque> linhasPecas = osPecaEstoqueRepository.findByOrdemServicoId(id);
+        aplicarMudancaEstoquePecas(agregarPecasPorProdutoEntidades(linhasPecas), Map.of());
 
         osPecaEstoqueRepository.deleteByOrdemServicoId(id);
         osMaoObraRepository.deleteByOrdemServicoId(id);
@@ -180,7 +179,8 @@ public class OrdemServicoService {
             peca.setOrdemServico(os);
             peca.setProduto(produto);
             peca.setQuantidade(item.quantidade());
-            peca.setValorCobrado(item.valorCobrado());
+            /* Valor de cobranca acompanha o cadastro do estoque (preco de venda), nao o payload. */
+            peca.setValorCobrado(produto.getPrecoVenda());
             osPecaEstoqueRepository.save(peca);
         }
     }
@@ -229,11 +229,22 @@ public class OrdemServicoService {
         ordemServicoRepository.save(os);
     }
 
-    private void baixarEstoquePecas(Integer ordemServicoId) {
-        List<OsPecaEstoque> pecas = osPecaEstoqueRepository.findByOrdemServicoId(ordemServicoId);
-        for (OsPecaEstoque item : pecas) {
-            Produto produto = item.getProduto();
-            int novoSaldo = produto.getQtdEstoque() - item.getQuantidade();
+    /** Ajusta estoque pela diferenca entre o que a OS pedia antes e o pedido novo. */
+    private void aplicarMudancaEstoquePecas(
+            Map<Integer, Integer> quantidadeAntesPorProduto, Map<Integer, Integer> quantidadeNovoPorProduto) {
+        Set<Integer> produtoIds = new HashSet<>();
+        produtoIds.addAll(quantidadeAntesPorProduto.keySet());
+        produtoIds.addAll(quantidadeNovoPorProduto.keySet());
+        for (Integer produtoId : produtoIds) {
+            int qAntes = quantidadeAntesPorProduto.getOrDefault(produtoId, 0);
+            int qNovo = quantidadeNovoPorProduto.getOrDefault(produtoId, 0);
+            int delta = qNovo - qAntes;
+            if (delta == 0) {
+                continue;
+            }
+            Produto produto = produtoRepository.findById(produtoId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto nao encontrado: " + produtoId));
+            int novoSaldo = produto.getQtdEstoque() - delta;
             if (novoSaldo < 0) {
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
@@ -243,6 +254,26 @@ public class OrdemServicoService {
             produto.setQtdEstoque(novoSaldo);
             produtoRepository.save(produto);
         }
+    }
+
+    private Map<Integer, Integer> agregarPecasPorProdutoRequest(List<OrdemServicoPecaRequest> itens) {
+        if (itens == null || itens.isEmpty()) {
+            return Map.of();
+        }
+        return itens.stream()
+                .collect(Collectors.groupingBy(OrdemServicoPecaRequest::produtoId, Collectors.summingInt(OrdemServicoPecaRequest::quantidade)));
+    }
+
+    private Map<Integer, Integer> agregarPecasPorProdutoEntidades(List<OsPecaEstoque> itens) {
+        if (itens == null || itens.isEmpty()) {
+            return new HashMap<>();
+        }
+        Map<Integer, Integer> m = new HashMap<>();
+        for (OsPecaEstoque linha : itens) {
+            int pid = linha.getProduto().getId();
+            m.merge(pid, linha.getQuantidade(), Integer::sum);
+        }
+        return m;
     }
 
     private OrdemServicoResponse montarResposta(OrdemServico os) {

@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { login } from "@/features/auth/api";
+import { Button } from "@/components/ui/button";
+import { fieldClass, labelClass } from "@/lib/form-styles";
 
 interface Props {
   onSuccess: () => void;
@@ -34,23 +36,37 @@ export function LoginForm({ onSuccess }: Props) {
     <main className="flex min-h-screen items-center justify-center p-6">
       <form className="w-full max-w-sm space-y-3 rounded-lg border border-slate-200 bg-white p-6" onSubmit={onSubmit}>
         <h1 className="text-xl font-semibold">Entrar</h1>
-        <input
-          className="w-full rounded-md border border-slate-300 p-2"
-          placeholder="Usuario"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          className="w-full rounded-md border border-slate-300 p-2"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div>
+          <label className={labelClass} htmlFor="login-user">
+            Usuário
+          </label>
+          <input
+            id="login-user"
+            className={fieldClass}
+            placeholder="Usuário"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="login-pass">
+            Senha
+          </label>
+          <input
+            id="login-pass"
+            type="password"
+            className={fieldClass}
+            placeholder="Senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <button className="w-full rounded bg-blue-700 px-4 py-2 text-white" disabled={loading}>
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
+        <Button type="submit" className="w-full" size="md" disabled={loading}>
+          {loading ? "Entrando…" : "Entrar"}
+        </Button>
       </form>
     </main>
   );
