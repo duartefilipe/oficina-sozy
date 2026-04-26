@@ -35,20 +35,20 @@ public class ProdutoController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public ProdutoResponse criar(@Valid @RequestBody ProdutoRequest request) {
         return produtoService.criar(request);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public ProdutoResponse atualizar(@PathVariable Integer id, @Valid @RequestBody ProdutoRequest request) {
         return produtoService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public void remover(@PathVariable Integer id) {
         produtoService.remover(id);
     }

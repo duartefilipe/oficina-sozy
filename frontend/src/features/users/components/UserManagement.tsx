@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useOficinas } from "@/features/oficinas/hooks";
 import { useAtualizarUsuario, useCriarUsuario, useRemoverUsuario, useUsuarios } from "@/features/users/hooks";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -14,7 +15,7 @@ const formSchema = z.object({
   username: z.string().min(3, "Username deve ter pelo menos 3 caracteres"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   role: z.enum(["SUPERADMIN", "ADMIN", "USUARIO"]),
-  createdByAdminId: z.number().int().positive().optional()
+  oficinaId: z.number().int().positive().optional()
 });
 
 type FormState = z.infer<typeof formSchema>;
@@ -23,7 +24,8 @@ const defaultState: FormState = {
   nome: "",
   username: "",
   password: "",
-  role: "USUARIO"
+  role: "USUARIO",
+  oficinaId: undefined
 };
 
 interface EditFormState {
@@ -31,7 +33,7 @@ interface EditFormState {
   username: string;
   password: string;
   role: UserRole;
-  createdByAdminId?: number;
+  oficinaId?: number;
   ativo: boolean;
 }
 
@@ -40,16 +42,50 @@ const defaultEditState: EditFormState = {
   username: "",
   password: "",
   role: "USUARIO",
+  oficinaId: undefined,
   ativo: true
 };
 
+function UserViewModal({
+  user,
+  onClose
+}: {
+  user: UserResponseDto | null;
+  onClose: () => void;
+}) {
+  if (!user) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <button type="button" className="absolute inset-0 bg-slate-900/50" aria-label="Fechar" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">Usuário #{user.id}</h3>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            Fechar
+          </Button>
+        </div>
+        <dl className="space-y-2 text-sm text-slate-700">
+          <div><dt className="font-medium">Nome</dt><dd>{user.nome}</dd></div>
+          <div><dt className="font-medium">Usuário</dt><dd>{user.username}</dd></div>
+          <div><dt className="font-medium">Perfil</dt><dd>{user.role}</dd></div>
+          <div><dt className="font-medium">Oficina</dt><dd>{user.oficinaNome ?? "—"}</dd></div>
+          <div><dt className="font-medium">Ativo</dt><dd>{user.ativo ? "Sim" : "Não"}</dd></div>
+        </dl>
+      </div>
+    </div>
+  );
+}
+
 export function UserManagement() {
   const userRole = (localStorage.getItem("auth_user_role") as UserRole | null) ?? "USUARIO";
+  const myOficinaId = Number(localStorage.getItem("auth_oficina_id") || "0") || undefined;
   const usuarios = useUsuarios();
+  const oficinas = useOficinas();
   const criar = useCriarUsuario();
   const atualizar = useAtualizarUsuario();
   const remover = useRemoverUsuario();
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [visualizando, setVisualizando] = useState<UserResponseDto | null>(null);
   const form = useForm<FormState>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultState
@@ -65,7 +101,6 @@ export function UserManagement() {
     );
   }
 
-  const admins = (usuarios.data ?? []).filter((u) => u.role === "ADMIN");
   const selectedRole = form.watch("role");
   const selectedEditRole = editForm.watch("role");
 
@@ -76,8 +111,8 @@ export function UserManagement() {
       { accessorKey: "username", header: "Usuário" },
       { accessorKey: "role", header: "Perfil" },
       {
-        accessorKey: "createdByAdminId",
-        header: "Grupo (admin)",
+        accessorKey: "oficinaNome",
+        header: "Oficina",
         cell: ({ getValue }) => (getValue() != null ? String(getValue()) : "—")
       },
       {
@@ -91,15 +126,15 @@ export function UserManagement() {
         enableSorting: false,
         cell: ({ row }) => {
           const u = row.original;
-          if (u.role === "SUPERADMIN") {
-            return <span className="text-slate-500">—</span>;
-          }
           return (
             <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setVisualizando(u)}>
+                Visualizar
+              </Button>
               <Button
                 type="button"
                 variant="warning"
-                size="md"
+                size="sm"
                 onClick={() => {
                   setEditandoId(u.id);
                   editForm.reset({
@@ -107,14 +142,14 @@ export function UserManagement() {
                     username: u.username,
                     password: "",
                     role: u.role,
-                    createdByAdminId: u.createdByAdminId,
+                    oficinaId: u.oficinaId,
                     ativo: u.ativo
                   });
                 }}
               >
                 Editar
               </Button>
-              <Button type="button" variant="danger" size="md" onClick={() => remover.mutate(u.id)}>
+              <Button type="button" variant="danger" size="sm" onClick={() => remover.mutate(u.id)}>
                 Remover
               </Button>
             </div>
@@ -126,7 +161,9 @@ export function UserManagement() {
   );
 
   const onSubmit = (values: FormState) => {
-    const payload = userRole === "ADMIN" ? { ...values, role: "USUARIO" as const } : values;
+    const payload = userRole === "ADMIN"
+      ? { ...values, role: "USUARIO" as const, oficinaId: myOficinaId }
+      : values;
     criar.mutate(payload, {
       onSuccess: () => form.reset(defaultState)
     });
@@ -136,7 +173,7 @@ export function UserManagement() {
     if (!editandoId) return;
     const payload =
       userRole === "ADMIN"
-        ? { ...values, role: "USUARIO" as const, createdByAdminId: undefined }
+        ? { ...values, role: "USUARIO" as const, oficinaId: myOficinaId }
         : values;
     atualizar.mutate(
       {
@@ -159,7 +196,7 @@ export function UserManagement() {
     <section className="mx-auto mt-6 max-w-5xl rounded-lg border border-slate-200 bg-white p-6">
       <h2 className="text-xl font-semibold">Gestao de Usuarios</h2>
       <p className="mb-4 text-sm text-slate-600">
-        Superadmin cria ADMIN e USUARIO. Admin cria somente USUARIO.
+        Superadmin cria ADMIN e USUARIO e define oficina. Admin cria somente USUARIO da própria oficina.
       </p>
 
       <form
@@ -195,37 +232,36 @@ export function UserManagement() {
             Perfil
           </label>
           <select id="u-role" className={fieldClass} {...form.register("role")} disabled={userRole === "ADMIN"}>
+            {userRole === "SUPERADMIN" ? <option value="SUPERADMIN">SUPERADMIN</option> : null}
             {userRole === "SUPERADMIN" ? <option value="ADMIN">ADMIN</option> : null}
             <option value="USUARIO">USUARIO</option>
           </select>
         </div>
+        {userRole === "SUPERADMIN" && selectedRole !== "SUPERADMIN" ? (
+          <div>
+            <label className={labelClass} htmlFor="u-oficina">
+              Oficina
+            </label>
+            <select
+              id="u-oficina"
+              className={fieldClass}
+              {...form.register("oficinaId", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+            >
+              <option value="">Selecione a oficina</option>
+              {(oficinas.data ?? []).filter((o) => o.ativo).map((oficina) => (
+                <option key={oficina.id} value={oficina.id}>
+                  {oficina.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="flex items-end">
           <Button type="submit" className="w-full sm:w-auto" size="md">
             Criar
           </Button>
         </div>
 
-        {userRole === "SUPERADMIN" && selectedRole === "USUARIO" ? (
-          <div className="md:col-span-2">
-            <label className={labelClass} htmlFor="u-grupo">
-              Grupo (admin)
-            </label>
-            <select
-              id="u-grupo"
-              className={fieldClass}
-              {...form.register("createdByAdminId", {
-                setValueAs: (v) => (v === "" ? undefined : Number(v))
-              })}
-            >
-              <option value="">Selecione o ADMIN do grupo</option>
-              {admins.map((admin) => (
-                <option key={admin.id} value={admin.id}>
-                  {admin.nome} ({admin.username})
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
         {(form.formState.errors.nome || form.formState.errors.username || form.formState.errors.password) ? (
           <div className="col-span-full space-y-1">
             {form.formState.errors.nome ? <p className="text-xs text-red-600">{form.formState.errors.nome.message}</p> : null}
@@ -262,10 +298,27 @@ export function UserManagement() {
             <div>
               <label className={labelClass}>Perfil</label>
               <select className={fieldClass} {...editForm.register("role")} disabled={userRole === "ADMIN"}>
+                {userRole === "SUPERADMIN" ? <option value="SUPERADMIN">SUPERADMIN</option> : null}
                 {userRole === "SUPERADMIN" ? <option value="ADMIN">ADMIN</option> : null}
                 <option value="USUARIO">USUARIO</option>
               </select>
             </div>
+            {userRole === "SUPERADMIN" && selectedEditRole !== "SUPERADMIN" ? (
+              <div>
+                <label className={labelClass}>Oficina</label>
+                <select
+                  className={fieldClass}
+                  {...editForm.register("oficinaId", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+                >
+                  <option value="">Selecione a oficina</option>
+                  {(oficinas.data ?? []).map((oficina) => (
+                    <option key={oficina.id} value={oficina.id}>
+                      {oficina.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div>
               <label className={labelClass}>Ativo</label>
               <select
@@ -276,24 +329,6 @@ export function UserManagement() {
                 <option value="false">Inativo</option>
               </select>
             </div>
-            {userRole === "SUPERADMIN" && selectedEditRole === "USUARIO" ? (
-              <div>
-                <label className={labelClass}>Grupo (admin)</label>
-                <select
-                  className={fieldClass}
-                  {...editForm.register("createdByAdminId", {
-                    setValueAs: (v) => (v === "" ? undefined : Number(v))
-                  })}
-                >
-                  <option value="">Selecione o ADMIN do grupo</option>
-                  {admins.map((admin) => (
-                    <option key={admin.id} value={admin.id}>
-                      {admin.nome} ({admin.username})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="warning" size="md">
@@ -323,6 +358,7 @@ export function UserManagement() {
           pageSize={10}
         />
       </div>
+      <UserViewModal user={visualizando} onClose={() => setVisualizando(null)} />
     </section>
   );
 }

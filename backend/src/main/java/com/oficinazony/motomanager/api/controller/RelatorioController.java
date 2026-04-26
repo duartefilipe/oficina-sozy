@@ -20,7 +20,7 @@ public class RelatorioController {
     }
 
     @GetMapping("/resumo")
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public RelatorioResumoResponse resumo(
             @RequestParam(required = false) LocalDate dataInicio,
             @RequestParam(required = false) LocalDate dataFim

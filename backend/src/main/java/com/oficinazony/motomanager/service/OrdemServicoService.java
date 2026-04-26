@@ -8,6 +8,7 @@ import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoPecaRequest;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoPecaResponse;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoRequest;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoResponse;
+import com.oficinazony.motomanager.domain.entity.Oficina;
 import com.oficinazony.motomanager.domain.entity.OrdemServico;
 import com.oficinazony.motomanager.domain.entity.OsCustoExterno;
 import com.oficinazony.motomanager.domain.entity.OsMaoObra;
@@ -15,6 +16,7 @@ import com.oficinazony.motomanager.domain.entity.OsPecaEstoque;
 import com.oficinazony.motomanager.domain.entity.Produto;
 import com.oficinazony.motomanager.domain.enums.OrdemServicoStatus;
 import com.oficinazony.motomanager.domain.enums.UserRole;
+import com.oficinazony.motomanager.repository.OficinaRepository;
 import com.oficinazony.motomanager.repository.OrdemServicoRepository;
 import com.oficinazony.motomanager.repository.OsCustoExternoRepository;
 import com.oficinazony.motomanager.repository.OsMaoObraRepository;
@@ -41,6 +43,7 @@ public class OrdemServicoService {
     private final OsPecaEstoqueRepository osPecaEstoqueRepository;
     private final OsMaoObraRepository osMaoObraRepository;
     private final OsCustoExternoRepository osCustoExternoRepository;
+    private final OficinaRepository oficinaRepository;
     private final ProdutoRepository produtoRepository;
     private final AuthContextService authContextService;
 
@@ -49,6 +52,7 @@ public class OrdemServicoService {
             OsPecaEstoqueRepository osPecaEstoqueRepository,
             OsMaoObraRepository osMaoObraRepository,
             OsCustoExternoRepository osCustoExternoRepository,
+            OficinaRepository oficinaRepository,
             ProdutoRepository produtoRepository,
             AuthContextService authContextService
     ) {
@@ -56,6 +60,7 @@ public class OrdemServicoService {
         this.osPecaEstoqueRepository = osPecaEstoqueRepository;
         this.osMaoObraRepository = osMaoObraRepository;
         this.osCustoExternoRepository = osCustoExternoRepository;
+        this.oficinaRepository = oficinaRepository;
         this.produtoRepository = produtoRepository;
         this.authContextService = authContextService;
     }
@@ -66,7 +71,7 @@ public class OrdemServicoService {
         os.setPlacaMoto(request.placaMoto());
         os.setCliente(request.cliente());
         os.setStatus(request.status());
-        os.setAdminGroupId(resolveAdminGroupId());
+        os.setOficina(resolveOficinaAtual());
         os = ordemServicoRepository.save(os);
 
         aplicarMudancaEstoquePecas(Map.of(), agregarPecasPorProdutoRequest(request.pecasEstoque()));
@@ -90,7 +95,7 @@ public class OrdemServicoService {
         SecurityUser current = authContextService.currentUser();
         List<OrdemServico> ordens = current.getRole() == UserRole.SUPERADMIN
                 ? ordemServicoRepository.findAll()
-                : ordemServicoRepository.findByAdminGroupId(current.getAdminGroupId());
+                : (current.getOficinaId() == null ? List.of() : ordemServicoRepository.findByOficinaId(current.getOficinaId()));
         return ordens.stream().map(this::montarResposta).toList();
     }
 
@@ -175,6 +180,7 @@ public class OrdemServicoService {
         for (OrdemServicoPecaRequest item : itens) {
             Produto produto = produtoRepository.findById(item.produtoId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto nao encontrado"));
+            validarAcessoProduto(produto);
             OsPecaEstoque peca = new OsPecaEstoque();
             peca.setOrdemServico(os);
             peca.setProduto(produto);
@@ -244,6 +250,7 @@ public class OrdemServicoService {
             }
             Produto produto = produtoRepository.findById(produtoId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto nao encontrado: " + produtoId));
+            validarAcessoProduto(produto);
             int novoSaldo = produto.getQtdEstoque() - delta;
             if (novoSaldo < 0) {
                 throw new ResponseStatusException(
@@ -317,12 +324,13 @@ public class OrdemServicoService {
         return status == OrdemServicoStatus.FINALIZADA || status == OrdemServicoStatus.PAGA;
     }
 
-    private Integer resolveAdminGroupId() {
+    private Oficina resolveOficinaAtual() {
         SecurityUser current = authContextService.currentUser();
-        if (current.getRole() == UserRole.SUPERADMIN) {
-            return null;
+        if (current.getOficinaId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario sem oficina vinculada");
         }
-        return current.getAdminGroupId();
+        return oficinaRepository.findById(current.getOficinaId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Oficina nao encontrada"));
     }
 
     private void validarAcessoGrupo(OrdemServico os) {
@@ -330,8 +338,18 @@ public class OrdemServicoService {
         if (current.getRole() == UserRole.SUPERADMIN) {
             return;
         }
-        if (current.getAdminGroupId() == null || !current.getAdminGroupId().equals(os.getAdminGroupId())) {
+        if (current.getOficinaId() == null || os.getOficina() == null || !current.getOficinaId().equals(os.getOficina().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissao para acessar esta OS");
+        }
+    }
+
+    private void validarAcessoProduto(Produto produto) {
+        SecurityUser current = authContextService.currentUser();
+        if (current.getRole() == UserRole.SUPERADMIN) {
+            return;
+        }
+        if (produto.getOficina() == null || current.getOficinaId() == null || !current.getOficinaId().equals(produto.getOficina().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissao para produto de outra oficina");
         }
     }
 }

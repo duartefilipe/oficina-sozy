@@ -4,7 +4,6 @@ import com.oficinazony.motomanager.api.dto.auth.LoginRequest;
 import com.oficinazony.motomanager.api.dto.auth.LoginResponse;
 import com.oficinazony.motomanager.api.dto.auth.MeResponse;
 import com.oficinazony.motomanager.domain.entity.AppUser;
-import com.oficinazony.motomanager.domain.enums.UserRole;
 import com.oficinazony.motomanager.repository.AppUserRepository;
 import com.oficinazony.motomanager.security.JwtService;
 import com.oficinazony.motomanager.security.AuthContextService;
@@ -42,21 +41,24 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciais invalidas");
         }
-        Integer adminGroupId = user.getRole() == UserRole.SUPERADMIN
-                ? null
-                : (user.getRole() == UserRole.ADMIN
-                ? user.getId()
-                : (user.getCreatedByAdmin() != null ? user.getCreatedByAdmin().getId() : null));
 
         String token = jwtService.generate(new SecurityUser(
                 user.getId(),
                 user.getUsername(),
                 user.getPasswordHash(),
                 user.getRole(),
-                adminGroupId,
+                user.getOficina() != null ? user.getOficina().getId() : null,
                 Boolean.TRUE.equals(user.getAtivo())
         ));
-        return new LoginResponse(token, user.getId(), user.getNome(), user.getUsername(), user.getRole());
+        return new LoginResponse(
+                token,
+                user.getId(),
+                user.getNome(),
+                user.getUsername(),
+                user.getRole(),
+                user.getOficina() != null ? user.getOficina().getId() : null,
+                user.getOficina() != null ? user.getOficina().getNome() : null
+        );
     }
 
     @Transactional(readOnly = true)
@@ -64,6 +66,13 @@ public class AuthService {
         SecurityUser current = authContextService.currentUser();
         AppUser user = appUserRepository.findById(current.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario nao encontrado"));
-        return new MeResponse(user.getId(), user.getNome(), user.getUsername(), user.getRole());
+        return new MeResponse(
+                user.getId(),
+                user.getNome(),
+                user.getUsername(),
+                user.getRole(),
+                user.getOficina() != null ? user.getOficina().getId() : null,
+                user.getOficina() != null ? user.getOficina().getNome() : null
+        );
     }
 }

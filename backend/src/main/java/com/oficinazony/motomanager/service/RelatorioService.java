@@ -55,10 +55,10 @@ public class RelatorioService {
 
         List<Venda> vendas = current.getRole() == UserRole.SUPERADMIN
                 ? vendaRepository.findAll()
-                : vendaRepository.findByAdminGroupId(current.getAdminGroupId());
+                : (current.getOficinaId() == null ? List.of() : vendaRepository.findByOficinaId(current.getOficinaId()));
         List<OrdemServico> ordens = current.getRole() == UserRole.SUPERADMIN
                 ? ordemServicoRepository.findAll()
-                : ordemServicoRepository.findByAdminGroupId(current.getAdminGroupId());
+                : (current.getOficinaId() == null ? List.of() : ordemServicoRepository.findByOficinaId(current.getOficinaId()));
 
         if (dataInicio != null) {
             vendas = vendas.stream()

@@ -24,6 +24,16 @@ export function LoginForm({ onSuccess }: Props) {
       localStorage.setItem("auth_user_nome", result.nome);
       localStorage.setItem("auth_username", result.username);
       localStorage.setItem("auth_user_role", result.role);
+      if (result.oficinaId != null) {
+        localStorage.setItem("auth_oficina_id", String(result.oficinaId));
+      } else {
+        localStorage.removeItem("auth_oficina_id");
+      }
+      if (result.oficinaNome) {
+        localStorage.setItem("auth_oficina_nome", result.oficinaNome);
+      } else {
+        localStorage.removeItem("auth_oficina_nome");
+      }
       onSuccess();
     } catch {
       setError("Login invalido.");

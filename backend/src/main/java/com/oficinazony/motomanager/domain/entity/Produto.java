@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 
@@ -45,6 +47,10 @@ public class Produto {
     private String renavam;
 
     private Integer ano;
+
+    @ManyToOne
+    @JoinColumn(name = "oficina_id")
+    private Oficina oficina;
 
     public Integer getId() {
         return id;
@@ -124,5 +130,13 @@ public class Produto {
 
     public void setAno(Integer ano) {
         this.ano = ano;
+    }
+
+    public Oficina getOficina() {
+        return oficina;
+    }
+
+    public void setOficina(Oficina oficina) {
+        this.oficina = oficina;
     }
 }

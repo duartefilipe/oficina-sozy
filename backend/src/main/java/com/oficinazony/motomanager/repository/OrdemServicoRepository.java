@@ -5,5 +5,5 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Integer> {
-    List<OrdemServico> findByAdminGroupId(Integer adminGroupId);
+    List<OrdemServico> findByOficinaId(Integer oficinaId);
 }

@@ -10,6 +10,7 @@ public record UserUpdateRequest(
         String password,
         @NotNull UserRole role,
         Integer createdByAdminId,
+        Integer oficinaId,
         @NotNull Boolean ativo
 ) {
 }

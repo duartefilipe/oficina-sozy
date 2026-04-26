@@ -4,8 +4,10 @@ import com.oficinazony.motomanager.api.dto.user.UserRequest;
 import com.oficinazony.motomanager.api.dto.user.UserResponse;
 import com.oficinazony.motomanager.api.dto.user.UserUpdateRequest;
 import com.oficinazony.motomanager.domain.entity.AppUser;
+import com.oficinazony.motomanager.domain.entity.Oficina;
 import com.oficinazony.motomanager.domain.enums.UserRole;
 import com.oficinazony.motomanager.repository.AppUserRepository;
+import com.oficinazony.motomanager.repository.OficinaRepository;
 import com.oficinazony.motomanager.security.AuthContextService;
 import com.oficinazony.motomanager.security.SecurityUser;
 import java.util.List;
@@ -19,15 +21,18 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserService {
 
     private final AppUserRepository appUserRepository;
+    private final OficinaRepository oficinaRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthContextService authContextService;
 
     public UserService(
             AppUserRepository appUserRepository,
+            OficinaRepository oficinaRepository,
             PasswordEncoder passwordEncoder,
             AuthContextService authContextService
     ) {
         this.appUserRepository = appUserRepository;
+        this.oficinaRepository = oficinaRepository;
         this.passwordEncoder = passwordEncoder;
         this.authContextService = authContextService;
     }
@@ -51,26 +56,15 @@ public class UserService {
         user.setNome(request.nome());
         user.setUsername(request.username());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setRole(request.role());
+        user.setRole(current.getRole() == UserRole.ADMIN ? UserRole.USUARIO : request.role());
+        user.setOficina(resolveOficinaParaCriacao(current, request.role(), request.oficinaId()));
 
-        if (request.role() != UserRole.SUPERADMIN) {
-            if (current.getRole() == UserRole.SUPERADMIN && request.role() == UserRole.ADMIN) {
-                user.setCreatedByAdmin(null);
-            } else if (current.getRole() == UserRole.SUPERADMIN && request.role() == UserRole.USUARIO) {
-                if (request.createdByAdminId() == null) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe createdByAdminId para usuario comum");
-                }
-                AppUser admin = appUserRepository.findById(request.createdByAdminId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin informando nao encontrado"));
-                if (admin.getRole() != UserRole.ADMIN) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "createdByAdminId deve apontar para um ADMIN");
-                }
-                user.setCreatedByAdmin(admin);
-            } else {
-                AppUser admin = appUserRepository.findById(current.getId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario logado invalido"));
-                user.setCreatedByAdmin(admin);
-            }
+        if (user.getRole() == UserRole.USUARIO && current.getRole() == UserRole.ADMIN) {
+            AppUser admin = appUserRepository.findById(current.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario logado invalido"));
+            user.setCreatedByAdmin(admin);
+        } else {
+            user.setCreatedByAdmin(null);
         }
 
         return toResponse(appUserRepository.save(user));
@@ -82,15 +76,10 @@ public class UserService {
         if (current.getRole() == UserRole.SUPERADMIN) {
             return appUserRepository.findAll().stream().map(this::toResponse).toList();
         }
-        if (current.getRole() == UserRole.ADMIN) {
-            AppUser self = appUserRepository.findById(current.getId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario logado invalido"));
-            List<UserResponse> meus = appUserRepository.findByCreatedByAdminId(current.getId()).stream().map(this::toResponse).toList();
-            return java.util.stream.Stream.concat(java.util.stream.Stream.of(toResponse(self)), meus.stream()).toList();
+        if (current.getOficinaId() == null) {
+            return List.of();
         }
-        AppUser self = appUserRepository.findById(current.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario logado invalido"));
-        return List.of(toResponse(self));
+        return appUserRepository.findByOficinaId(current.getOficinaId()).stream().map(this::toResponse).toList();
     }
 
     @Transactional
@@ -100,20 +89,18 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario nao encontrado"));
 
         if (current.getRole() == UserRole.SUPERADMIN) {
-            if (target.getRole() == UserRole.SUPERADMIN) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nao e permitido remover superadmin");
+            if (target.getId().equals(current.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nao e permitido remover o proprio usuario");
             }
             appUserRepository.delete(target);
             return;
         }
 
         if (current.getRole() == UserRole.ADMIN) {
-            if (target.getCreatedByAdmin() == null || !target.getCreatedByAdmin().getId().equals(current.getId())) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin so pode remover usuarios do proprio grupo");
-            }
             if (target.getRole() != UserRole.USUARIO) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin so pode remover usuario comum");
             }
+            validarMesmaOficina(current, target);
             appUserRepository.delete(target);
             return;
         }
@@ -133,9 +120,6 @@ public class UserService {
                 });
 
         if (current.getRole() == UserRole.SUPERADMIN) {
-            if (target.getRole() == UserRole.SUPERADMIN) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nao e permitido editar superadmin");
-            }
             aplicarAtualizacao(target, request, current);
             return toResponse(appUserRepository.save(target));
         }
@@ -144,15 +128,14 @@ public class UserService {
             if (target.getRole() != UserRole.USUARIO) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin so pode editar usuario comum");
             }
-            if (target.getCreatedByAdmin() == null || !target.getCreatedByAdmin().getId().equals(current.getId())) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin so pode editar usuarios do proprio grupo");
-            }
+            validarMesmaOficina(current, target);
             if (request.role() != UserRole.USUARIO) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin nao pode alterar perfil para ADMIN/SUPERADMIN");
             }
             target.setNome(request.nome());
             target.setUsername(request.username());
             target.setAtivo(request.ativo());
+            target.setOficina(resolveOficinaParaAtualizacao(current, target, request.role(), request.oficinaId()));
             if (request.password() != null && !request.password().isBlank()) {
                 target.setPasswordHash(passwordEncoder.encode(request.password()));
             }
@@ -167,13 +150,16 @@ public class UserService {
         target.setUsername(request.username());
         target.setRole(request.role());
         target.setAtivo(request.ativo());
+        target.setOficina(resolveOficinaParaAtualizacao(current, target, request.role(), request.oficinaId()));
 
         if (request.password() != null && !request.password().isBlank()) {
             target.setPasswordHash(passwordEncoder.encode(request.password()));
         }
 
         if (request.role() == UserRole.SUPERADMIN) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nao e permitido promover para superadmin");
+            target.setCreatedByAdmin(null);
+            target.setOficina(null);
+            return;
         }
 
         if (request.role() == UserRole.ADMIN) {
@@ -181,17 +167,8 @@ public class UserService {
             return;
         }
 
-        Integer adminId = request.createdByAdminId();
         if (current.getRole() == UserRole.SUPERADMIN) {
-            if (adminId == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe createdByAdminId para usuario comum");
-            }
-            AppUser admin = appUserRepository.findById(adminId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin informando nao encontrado"));
-            if (admin.getRole() != UserRole.ADMIN) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "createdByAdminId deve apontar para um ADMIN");
-            }
-            target.setCreatedByAdmin(admin);
+            target.setCreatedByAdmin(null);
             return;
         }
 
@@ -207,7 +184,55 @@ public class UserService {
                 user.getUsername(),
                 user.getRole(),
                 user.getCreatedByAdmin() != null ? user.getCreatedByAdmin().getId() : null,
+                user.getOficina() != null ? user.getOficina().getId() : null,
+                user.getOficina() != null ? user.getOficina().getNome() : null,
                 user.getAtivo()
         );
+    }
+
+    private Oficina resolveOficinaParaCriacao(SecurityUser current, UserRole role, Integer oficinaId) {
+        if (role == UserRole.SUPERADMIN) {
+            return null;
+        }
+        if (current.getRole() == UserRole.ADMIN) {
+            if (current.getOficinaId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin sem oficina vinculada");
+            }
+            return findOficina(current.getOficinaId());
+        }
+        if (oficinaId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe oficinaId");
+        }
+        return findOficina(oficinaId);
+    }
+
+    private Oficina resolveOficinaParaAtualizacao(SecurityUser current, AppUser target, UserRole role, Integer oficinaId) {
+        if (role == UserRole.SUPERADMIN) {
+            return null;
+        }
+        if (current.getRole() == UserRole.ADMIN) {
+            if (current.getOficinaId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin sem oficina vinculada");
+            }
+            return findOficina(current.getOficinaId());
+        }
+        if (oficinaId != null) {
+            return findOficina(oficinaId);
+        }
+        if (target.getOficina() != null) {
+            return target.getOficina();
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe oficinaId");
+    }
+
+    private Oficina findOficina(Integer oficinaId) {
+        return oficinaRepository.findById(oficinaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Oficina nao encontrada"));
+    }
+
+    private void validarMesmaOficina(SecurityUser current, AppUser target) {
+        if (current.getOficinaId() == null || target.getOficina() == null || !current.getOficinaId().equals(target.getOficina().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissao para usuario de outra oficina");
+        }
     }
 }

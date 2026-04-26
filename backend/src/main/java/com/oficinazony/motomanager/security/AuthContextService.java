@@ -16,7 +16,7 @@ public class AuthContextService {
         return currentUser().getRole() == UserRole.SUPERADMIN;
     }
 
-    public Integer currentAdminGroupId() {
-        return currentUser().getAdminGroupId();
+    public Integer currentOficinaId() {
+        return currentUser().getOficinaId();
     }
 }

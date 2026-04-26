@@ -9,6 +9,7 @@ public record UserRequest(
         @NotBlank String username,
         @NotBlank String password,
         @NotNull UserRole role,
-        Integer createdByAdminId
+        Integer createdByAdminId,
+        Integer oficinaId
 ) {
 }

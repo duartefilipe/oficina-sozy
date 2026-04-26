@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,8 +35,9 @@ public class Venda {
     @Column(length = 20)
     private VendaStatus status;
 
-    @Column(name = "admin_group_id")
-    private Integer adminGroupId;
+    @ManyToOne
+    @JoinColumn(name = "oficina_id")
+    private Oficina oficina;
 
     public Integer getId() {
         return id;
@@ -76,11 +79,11 @@ public class Venda {
         this.status = status;
     }
 
-    public Integer getAdminGroupId() {
-        return adminGroupId;
+    public Oficina getOficina() {
+        return oficina;
     }
 
-    public void setAdminGroupId(Integer adminGroupId) {
-        this.adminGroupId = adminGroupId;
+    public void setOficina(Oficina oficina) {
+        this.oficina = oficina;
     }
 }

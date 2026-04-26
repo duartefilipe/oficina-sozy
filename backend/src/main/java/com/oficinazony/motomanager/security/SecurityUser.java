@@ -12,15 +12,15 @@ public class SecurityUser implements UserDetails {
     private final String username;
     private final String passwordHash;
     private final UserRole role;
-    private final Integer adminGroupId;
+    private final Integer oficinaId;
     private final boolean ativo;
 
-    public SecurityUser(Integer id, String username, String passwordHash, UserRole role, Integer adminGroupId, boolean ativo) {
+    public SecurityUser(Integer id, String username, String passwordHash, UserRole role, Integer oficinaId, boolean ativo) {
         this.id = id;
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
-        this.adminGroupId = adminGroupId;
+        this.oficinaId = oficinaId;
         this.ativo = ativo;
     }
 
@@ -32,8 +32,8 @@ public class SecurityUser implements UserDetails {
         return role;
     }
 
-    public Integer getAdminGroupId() {
-        return adminGroupId;
+    public Integer getOficinaId() {
+        return oficinaId;
     }
 
     @Override

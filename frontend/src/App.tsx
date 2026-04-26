@@ -6,6 +6,7 @@ import { me } from "@/features/auth/api";
 import { ProdutoManagement } from "@/features/estoque/components/ProdutoManagement";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { HomeDashboard } from "@/features/home/components/HomeDashboard";
+import { OficinaManagement } from "@/features/oficinas/components/OficinaManagement";
 import { OrdemServicoForm } from "@/features/oficina/components/OrdemServicoForm";
 import { RelatorioResumo } from "@/features/relatorios/components/RelatorioResumo";
 import { UserManagement } from "@/features/users/components/UserManagement";
@@ -21,6 +22,7 @@ function App() {
   });
   const userName = useMemo(() => meQuery.data?.nome ?? localStorage.getItem("auth_user_nome"), [meQuery.data]);
   const userRole = meQuery.data?.role ?? (localStorage.getItem("auth_user_role") as "SUPERADMIN" | "ADMIN" | "USUARIO" | null);
+  const oficinaNome = meQuery.data?.oficinaNome ?? localStorage.getItem("auth_oficina_nome");
 
   useEffect(() => {
     if (!token || !meQuery.isError) return;
@@ -29,6 +31,8 @@ function App() {
     localStorage.removeItem("auth_user_nome");
     localStorage.removeItem("auth_username");
     localStorage.removeItem("auth_user_role");
+    localStorage.removeItem("auth_oficina_id");
+    localStorage.removeItem("auth_oficina_nome");
     setToken(null);
   }, [token, meQuery.isError]);
 
@@ -39,7 +43,10 @@ function App() {
   return (
     <main className="min-h-screen p-6">
       <div className="mx-auto mb-4 flex max-w-5xl items-center justify-between gap-2 rounded border border-slate-700 bg-slate-900 px-4 py-2.5 text-white shadow-sm">
-        <span className="text-sm font-medium">Logado como: {userName || "Usuario"}</span>
+        <span className="text-sm font-medium">
+          Logado como: {userName || "Usuario"}
+          {oficinaNome ? ` · ${oficinaNome}` : ""}
+        </span>
         <Button
           variant="secondary"
           size="md"
@@ -49,6 +56,8 @@ function App() {
             localStorage.removeItem("auth_user_nome");
             localStorage.removeItem("auth_username");
             localStorage.removeItem("auth_user_role");
+            localStorage.removeItem("auth_oficina_id");
+            localStorage.removeItem("auth_oficina_nome");
             setToken(null);
           }}
         >
@@ -61,8 +70,9 @@ function App() {
           <TabsTrigger value="oficina">Oficina</TabsTrigger>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
           <TabsTrigger value="vendas">Vendas</TabsTrigger>
+          {userRole === "SUPERADMIN" ? <TabsTrigger value="oficinas">Oficinas</TabsTrigger> : null}
           {userRole !== "USUARIO" ? <TabsTrigger value="usuarios">Usuarios</TabsTrigger> : null}
-          {userRole !== "USUARIO" ? <TabsTrigger value="relatorios">Relatorios</TabsTrigger> : null}
+          <TabsTrigger value="relatorios">Relatorios</TabsTrigger>
         </TabsList>
         <TabsContent value="home">
           <HomeDashboard />
@@ -76,16 +86,19 @@ function App() {
         <TabsContent value="vendas">
           <VendaRapidaForm />
         </TabsContent>
+        {userRole === "SUPERADMIN" ? (
+          <TabsContent value="oficinas">
+            <OficinaManagement />
+          </TabsContent>
+        ) : null}
         {userRole !== "USUARIO" ? (
           <TabsContent value="usuarios">
             <UserManagement />
           </TabsContent>
         ) : null}
-        {userRole !== "USUARIO" ? (
-          <TabsContent value="relatorios">
-            <RelatorioResumo />
-          </TabsContent>
-        ) : null}
+        <TabsContent value="relatorios">
+          <RelatorioResumo />
+        </TabsContent>
       </Tabs>
     </main>
   );

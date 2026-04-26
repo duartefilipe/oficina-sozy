@@ -6,6 +6,8 @@ public record MeResponse(
         Integer userId,
         String nome,
         String username,
-        UserRole role
+        UserRole role,
+        Integer oficinaId,
+        String oficinaNome
 ) {
 }

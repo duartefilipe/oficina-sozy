@@ -8,6 +8,8 @@ public record UserResponse(
         String username,
         UserRole role,
         Integer createdByAdminId,
+        Integer oficinaId,
+        String oficinaNome,
         Boolean ativo
 ) {
 }

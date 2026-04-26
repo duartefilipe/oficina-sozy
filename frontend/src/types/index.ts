@@ -124,6 +124,8 @@ export interface LoginResponseDto {
   nome: string;
   username: string;
   role: UserRole;
+  oficinaId?: number;
+  oficinaNome?: string;
 }
 
 export interface MeResponseDto {
@@ -131,6 +133,8 @@ export interface MeResponseDto {
   nome: string;
   username: string;
   role: UserRole;
+  oficinaId?: number;
+  oficinaNome?: string;
 }
 
 export interface UserRequestDto {
@@ -139,6 +143,7 @@ export interface UserRequestDto {
   password: string;
   role: UserRole;
   createdByAdminId?: number;
+  oficinaId?: number;
 }
 
 export interface UserResponseDto {
@@ -147,6 +152,8 @@ export interface UserResponseDto {
   username: string;
   role: UserRole;
   createdByAdminId?: number;
+  oficinaId?: number;
+  oficinaNome?: string;
   ativo: boolean;
 }
 
@@ -156,6 +163,22 @@ export interface UserUpdateRequestDto {
   password?: string;
   role: UserRole;
   createdByAdminId?: number;
+  oficinaId?: number;
+  ativo: boolean;
+}
+
+export interface OficinaRequestDto {
+  nome: string;
+}
+
+export interface OficinaUpdateRequestDto {
+  nome: string;
+  ativo: boolean;
+}
+
+export interface OficinaResponseDto {
+  id: number;
+  nome: string;
   ativo: boolean;
 }
 

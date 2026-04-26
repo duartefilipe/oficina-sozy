@@ -38,6 +38,10 @@ public class AppUser {
     @JoinColumn(name = "created_by_admin_id")
     private AppUser createdByAdmin;
 
+    @ManyToOne
+    @JoinColumn(name = "oficina_id")
+    private Oficina oficina;
+
     @Column(nullable = false)
     private Boolean ativo = true;
 
@@ -90,6 +94,14 @@ public class AppUser {
 
     public void setCreatedByAdmin(AppUser createdByAdmin) {
         this.createdByAdmin = createdByAdmin;
+    }
+
+    public Oficina getOficina() {
+        return oficina;
+    }
+
+    public void setOficina(Oficina oficina) {
+        this.oficina = oficina;
     }
 
     public Boolean getAtivo() {

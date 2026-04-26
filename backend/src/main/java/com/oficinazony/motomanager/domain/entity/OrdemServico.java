@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,8 +38,9 @@ public class OrdemServico {
     @Column(name = "valor_total", precision = 10, scale = 2)
     private BigDecimal valorTotal = BigDecimal.ZERO;
 
-    @Column(name = "admin_group_id")
-    private Integer adminGroupId;
+    @ManyToOne
+    @JoinColumn(name = "oficina_id")
+    private Oficina oficina;
 
     public Integer getId() {
         return id;
@@ -87,11 +90,11 @@ public class OrdemServico {
         this.valorTotal = valorTotal;
     }
 
-    public Integer getAdminGroupId() {
-        return adminGroupId;
+    public Oficina getOficina() {
+        return oficina;
     }
 
-    public void setAdminGroupId(Integer adminGroupId) {
-        this.adminGroupId = adminGroupId;
+    public void setOficina(Oficina oficina) {
+        this.oficina = oficina;
     }
 }
