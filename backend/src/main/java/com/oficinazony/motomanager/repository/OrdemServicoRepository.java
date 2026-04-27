@@ -17,4 +17,6 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Inte
     @Modifying
     @Query("update OrdemServico os set os.clienteRef = null where os.clienteRef.id = :clienteId")
     void desvincularCliente(@Param("clienteId") Integer clienteId);
+
+    void deleteByOficinaId(Integer oficinaId);
 }
