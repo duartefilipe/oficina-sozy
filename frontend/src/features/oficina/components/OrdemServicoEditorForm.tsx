@@ -93,7 +93,17 @@ export function OrdemServicoEditorForm({ osId, initialOs, onCancel, onSaved }: P
   const atualizarMutacao = useAtualizarOrdemServico();
   const clientesQuery = useClientes();
   const produtosQuery = useProdutos();
-  const pecas = useMemo(() => (produtosQuery.data ?? []).filter((p) => p.tipo === "PECA"), [produtosQuery.data]);
+  const clientes = useMemo(
+    () =>
+      (clientesQuery.data ?? []).filter(
+        (cliente) => cliente.ativo && (!initialOs.oficinaId || cliente.oficinaId === initialOs.oficinaId)
+      ),
+    [clientesQuery.data, initialOs.oficinaId]
+  );
+  const pecas = useMemo(
+    () => (produtosQuery.data ?? []).filter((p) => p.tipo === "PECA" && (!initialOs.oficinaId || p.oficinaId === initialOs.oficinaId)),
+    [initialOs.oficinaId, produtosQuery.data]
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -182,13 +192,11 @@ export function OrdemServicoEditorForm({ osId, initialOs, onCancel, onSaved }: P
           </label>
           <select id="os-edit-cliente" className={fieldClass} {...form.register("clienteSelecionado")}>
             <option value="NOVO">Cadastrar cliente</option>
-            {(clientesQuery.data ?? [])
-              .filter((c) => c.ativo)
-              .map((cliente) => (
-                <option key={cliente.id} value={String(cliente.id)}>
-                  {cliente.nome}
-                </option>
-              ))}
+            {clientes.map((cliente) => (
+              <option key={cliente.id} value={String(cliente.id)}>
+                {cliente.nomeCompleto ?? cliente.nome}
+              </option>
+            ))}
           </select>
           {form.watch("clienteSelecionado") === "NOVO" ? (
             <input
