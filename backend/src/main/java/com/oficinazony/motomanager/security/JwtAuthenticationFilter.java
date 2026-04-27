@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -43,6 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (Exception ignored) {
             SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Sessao expirada. Entre novamente.\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);

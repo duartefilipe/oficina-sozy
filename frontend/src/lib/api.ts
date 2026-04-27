@@ -11,3 +11,20 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user_id");
+      localStorage.removeItem("auth_user_nome");
+      localStorage.removeItem("auth_username");
+      localStorage.removeItem("auth_user_role");
+      localStorage.removeItem("auth_oficina_id");
+      localStorage.removeItem("auth_oficina_nome");
+      window.dispatchEvent(new Event("auth:expired"));
+    }
+    return Promise.reject(error);
+  }
+);
