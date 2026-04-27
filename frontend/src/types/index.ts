@@ -55,6 +55,8 @@ export interface OrdemServicoResponseDto {
   placaMoto: string;
   clienteId?: number;
   cliente?: string;
+  oficinaId?: number;
+  oficinaNome?: string;
   status: OrdemServicoStatus;
   dataAbertura: string;
   valorTotal: number;
