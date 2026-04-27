@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const searchInputClass =
-  "h-9 w-full min-w-[12rem] max-w-md rounded-xl border border-slate-200/90 bg-white px-3 text-sm text-slate-900 shadow-sm ring-1 ring-slate-900/5 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 md:w-72";
+  "h-9 w-full min-w-[12rem] max-w-md rounded-xl border border-slate-200/90 bg-white px-3 text-sm text-slate-900 shadow-sm ring-1 ring-slate-900/5 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:ring-slate-950/60 dark:placeholder:text-slate-500 dark:focus:border-slate-500 md:w-72";
 
 function defaultGlobalFilter<TData>(row: Row<TData>, _columnId: string, filterValue: string) {
   const q = String(filterValue ?? "")
@@ -101,20 +101,20 @@ export function DataTable<TData>({
           </div>
           {toolbar}
         </div>
-        <p className="text-sm text-slate-600" aria-live="polite">
+        <p className="text-sm text-slate-600 dark:text-slate-400" aria-live="polite">
           {pageInfo}
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5 dark:border-slate-700/80 dark:bg-slate-900 dark:ring-slate-950/80">
         <table className="w-full min-w-[640px] border-collapse text-sm" role="grid">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-slate-200/90 bg-slate-50/90">
+              <tr key={headerGroup.id} className="border-b border-slate-200/90 bg-slate-50/90 dark:border-slate-700 dark:bg-slate-800/80">
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-800"
+                    className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-800 dark:text-slate-200"
                     scope="col"
                   >
                     {header.isPlaceholder ? null : (
@@ -142,7 +142,7 @@ export function DataTable<TData>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-3 py-8 text-center text-sm text-slate-500"
+                  className="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
                 >
                   Nenhum resultado. Ajuste a pesquisa ou adicione registos.
                 </td>
@@ -152,12 +152,12 @@ export function DataTable<TData>({
                 <tr
                   key={row.id}
                   className={cn(
-                    "border-b border-slate-200 transition-colors hover:bg-slate-100/80",
-                    i % 2 === 1 && "bg-slate-50/60"
+                    "border-b border-slate-200 transition-colors hover:bg-slate-100/80 dark:border-slate-700 dark:hover:bg-slate-800/60",
+                    i % 2 === 1 && "bg-slate-50/60 dark:bg-slate-800/40"
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2 text-slate-800 align-middle">
+                    <td key={cell.id} className="px-3 py-2 text-slate-800 align-middle dark:text-slate-200">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -182,7 +182,7 @@ export function DataTable<TData>({
             <Button variant="outline" size="md" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
               Anterior
             </Button>
-            <span className="px-2 text-sm text-slate-600">
+            <span className="px-2 text-sm text-slate-600 dark:text-slate-400">
               Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
             </span>
             <Button variant="outline" size="md" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
