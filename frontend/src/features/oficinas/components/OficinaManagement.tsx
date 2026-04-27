@@ -108,12 +108,12 @@ export function OficinaManagement() {
   };
 
   return (
-    <section className="mx-auto mt-6 max-w-5xl rounded-lg border border-slate-200 bg-white p-6">
+    <section className="mx-auto mt-6 max-w-5xl rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm ring-1 ring-slate-900/5">
       <h2 className="text-xl font-semibold">Gestão de Oficinas</h2>
       <p className="mb-4 text-sm text-slate-600">Crie e mantenha oficinas para separar usuários e dados operacionais.</p>
 
       {(criar.isError || atualizar.isError || remover.isError) ? (
-        <p className="mb-3 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">
+        <p className="mb-3 rounded-2xl border border-red-200 bg-red-50/90 p-3 text-sm text-red-800 shadow-sm ring-1 ring-red-900/5">
           {getApiErrorMessage(criar.isError ? criar.error : atualizar.isError ? atualizar.error : remover.error)}
         </p>
       ) : null}
@@ -131,7 +131,10 @@ export function OficinaManagement() {
       </form>
 
       {editandoId ? (
-        <form className="mt-4 rounded-md border border-slate-200 p-4" onSubmit={editForm.handleSubmit(onEdit)}>
+        <form
+          className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 shadow-sm ring-1 ring-slate-900/5"
+          onSubmit={editForm.handleSubmit(onEdit)}
+        >
           <p className="mb-2 text-sm font-medium text-slate-800">Editando oficina #{editandoId}</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>

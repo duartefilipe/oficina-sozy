@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const searchInputClass =
-  "h-9 w-full min-w-[12rem] max-w-md rounded border border-slate-300 bg-white px-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400 md:w-72";
+  "h-9 w-full min-w-[12rem] max-w-md rounded-xl border border-slate-200/90 bg-white px-3 text-sm text-slate-900 shadow-sm ring-1 ring-slate-900/5 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 md:w-72";
 
 function defaultGlobalFilter<TData>(row: Row<TData>, _columnId: string, filterValue: string) {
   const q = String(filterValue ?? "")
@@ -106,11 +106,11 @@ export function DataTable<TData>({
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded border border-slate-300 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
         <table className="w-full min-w-[640px] border-collapse text-sm" role="grid">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-slate-300 bg-slate-100">
+              <tr key={headerGroup.id} className="border-b border-slate-200/90 bg-slate-50/90">
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}

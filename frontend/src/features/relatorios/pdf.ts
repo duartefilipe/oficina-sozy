@@ -2,6 +2,8 @@ import { jsPDF } from "jspdf";
 import type { RelatorioResumoDto } from "@/types";
 
 const margem = 14;
+const pageW = 210;
+const pageH = 297;
 
 function moeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor ?? 0));
@@ -14,9 +16,19 @@ function textoPeriodo(dataInicio?: string, dataFim?: string) {
   return `Até ${dataFim}`;
 }
 
-export function exportarRelatorioResumoPdf(
+export interface GraficoPdfCaptura {
+  titulo: string;
+  dataUrl: string;
+}
+
+export async function exportarRelatorioResumoPdf(
   resumo: RelatorioResumoDto,
-  opts: { dataInicio?: string; dataFim?: string; oficinaNome?: string }
+  opts: {
+    dataInicio?: string;
+    dataFim?: string;
+    oficinaNome?: string;
+    graficos?: GraficoPdfCaptura[];
+  }
 ) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   let y = margem;
@@ -56,16 +68,71 @@ export function exportarRelatorioResumoPdf(
 
   doc.setFontSize(10);
   for (const [rotulo, valor] of linhas) {
-    if (y > 270) {
+    if (y > pageH - 18) {
       doc.addPage();
       y = margem;
     }
     doc.setFont("helvetica", "normal");
     doc.text(rotulo, margem, y);
     doc.setFont("helvetica", "bold");
-    doc.text(valor, 200 - margem, y, { align: "right" });
+    doc.text(valor, pageW - margem, y, { align: "right" });
     y += 6;
   }
 
+  const graficos = opts.graficos?.filter((g) => g.dataUrl?.length > 32) ?? [];
+  if (graficos.length > 0) {
+    y += 6;
+    if (y > pageH - 40) {
+      doc.addPage();
+      y = margem;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Gráficos do período", margem, y);
+    y += 8;
+
+    const maxImgW = pageW - 2 * margem;
+
+    for (const { titulo, dataUrl } of graficos) {
+      if (y > pageH - 30) {
+        doc.addPage();
+        y = margem;
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(titulo, margem, y);
+      y += 5;
+
+      let imgH = 0;
+      let imgW = maxImgW;
+      try {
+        const dims = await loadImageDimensions(dataUrl);
+        if (dims.w > 0 && dims.h > 0) {
+          imgW = maxImgW;
+          imgH = (dims.h * imgW) / dims.w;
+        }
+      } catch {
+        imgH = 80;
+      }
+      if (imgH <= 0) imgH = 80;
+
+      if (y + imgH > pageH - margem) {
+        doc.addPage();
+        y = margem;
+      }
+      doc.addImage(dataUrl, "PNG", margem, y, imgW, imgH, undefined, "FAST");
+      y += imgH + 8;
+    }
+  }
+
   doc.save("relatorio-gerencial.pdf");
+}
+
+function loadImageDimensions(dataUrl: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => reject(new Error("imagem"));
+    img.src = dataUrl;
+  });
 }

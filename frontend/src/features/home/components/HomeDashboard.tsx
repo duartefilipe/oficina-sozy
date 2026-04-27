@@ -68,12 +68,16 @@ export function HomeDashboard() {
   );
 
   if (ordensQuery.isLoading) {
-    return <p className="rounded border border-slate-300 bg-white p-4 text-sm text-slate-600">Carregando painel da oficina…</p>;
+    return (
+      <p className="rounded-2xl border border-slate-200/80 bg-white p-6 text-sm text-slate-600 shadow-sm ring-1 ring-slate-900/5">
+        Carregando painel da oficina…
+      </p>
+    );
   }
 
   if (ordensQuery.isError) {
     return (
-      <p className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <p className="rounded-2xl border border-red-200 bg-red-50/90 p-6 text-sm text-red-800 shadow-sm ring-1 ring-red-900/5">
         Nao foi possivel carregar os dados da Home.
       </p>
     );
@@ -81,28 +85,28 @@ export function HomeDashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 rounded border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_20rem]">
+      <section className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-900/5 md:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold text-slate-900">Home</h1>
           <p className="text-sm text-slate-600">
             Acompanhe o progresso das ordens de servico e veja quantas ainda faltam para atingir 100% de conclusao.
           </p>
-          <div className="grid grid-cols-1 gap-2 text-sm text-slate-700 sm:grid-cols-3">
-            <div className="rounded border border-slate-200 bg-slate-50 p-2">
+          <div className="grid grid-cols-1 gap-3 text-sm text-slate-700 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm ring-1 ring-slate-900/5">
               <p className="text-xs uppercase text-slate-500">Total de OS</p>
               <p className="text-lg font-semibold text-slate-900">{total}</p>
             </div>
-            <div className="rounded border border-amber-200 bg-amber-50 p-2">
+            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-3 shadow-sm ring-1 ring-amber-900/5">
               <p className="text-xs uppercase text-amber-700">Pendentes</p>
               <p className="text-lg font-semibold text-amber-800">{pendentes}</p>
             </div>
-            <div className="rounded border border-emerald-200 bg-emerald-50 p-2">
+            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 p-3 shadow-sm ring-1 ring-emerald-900/5">
               <p className="text-xs uppercase text-emerald-700">Concluidas</p>
               <p className="text-lg font-semibold text-emerald-800">{concluidas}</p>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center gap-3 rounded border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-900/5">
           <div
             className="relative h-44 w-44 rounded-full"
             style={{
