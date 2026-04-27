@@ -97,13 +97,8 @@ public class ClienteService {
     @Transactional
     public void remover(Integer id) {
         Cliente cliente = buscarEntidadeComAcesso(id);
-        boolean possuiHistorico = ordemServicoRepository.existsByClienteRefId(id) || vendaRepository.existsByClienteRefId(id);
-        if (possuiHistorico) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Cliente possui historico de OS ou venda. Inative o cliente para preservar o historico."
-            );
-        }
+        ordemServicoRepository.desvincularCliente(id);
+        vendaRepository.desvincularCliente(id);
         clienteRepository.delete(cliente);
     }
 
