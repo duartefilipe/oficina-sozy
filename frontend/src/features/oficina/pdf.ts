@@ -149,3 +149,7 @@ export function gerarPdfOrdemServico(os: OrdemServicoResponseDto) {
 
   doc.save(`os-${os.id}.pdf`);
 }
+
+export function abrirPdfOrdemServico(os: OrdemServicoResponseDto) {
+  gerarPdfOrdemServico(os);
+}
