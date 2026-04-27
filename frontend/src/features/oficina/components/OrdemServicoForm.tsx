@@ -363,7 +363,7 @@ export function OrdemServicoForm() {
                 .filter((c) => c.ativo)
                 .map((cliente) => (
                   <option key={cliente.id} value={String(cliente.id)}>
-                    {cliente.nome}
+                    {cliente.nomeCompleto}
                   </option>
                 ))}
             </select>

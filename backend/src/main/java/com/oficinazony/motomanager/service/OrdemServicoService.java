@@ -73,15 +73,16 @@ public class OrdemServicoService {
     @Transactional
     public OrdemServicoResponse criar(OrdemServicoRequest request) {
         OrdemServico os = new OrdemServico();
-        Cliente cliente = resolveClienteParaLancamento(request.clienteId(), request.cliente());
+        Oficina oficina = resolveOficinaAtual();
+        Cliente cliente = resolveClienteParaLancamento(request.clienteId(), request.cliente(), oficina);
         os.setPlacaMoto(request.placaMoto());
         os.setClienteRef(cliente);
-        os.setCliente(cliente == null ? null : cliente.getNome());
+        os.setCliente(cliente == null ? null : cliente.getNomeCompleto());
         os.setStatus(request.status());
-        os.setOficina(resolveOficinaAtual());
+        os.setOficina(oficina);
         os = ordemServicoRepository.save(os);
 
-        aplicarMudancaEstoquePecas(Map.of(), agregarPecasPorProdutoRequest(request.pecasEstoque()));
+        aplicarMudancaEstoquePecas(Map.of(), agregarPecasPorProdutoRequest(request.pecasEstoque()), oficina);
         salvarPecas(os, request.pecasEstoque());
         salvarServicos(os, request.servicos());
         salvarCustosExternos(os, request.custosExternos());
@@ -141,12 +142,16 @@ public class OrdemServicoService {
         }
 
         List<OsPecaEstoque> linhasPecasAntes = osPecaEstoqueRepository.findByOrdemServicoId(id);
-        aplicarMudancaEstoquePecas(agregarPecasPorProdutoEntidades(linhasPecasAntes), agregarPecasPorProdutoRequest(request.pecasEstoque()));
+        aplicarMudancaEstoquePecas(
+                agregarPecasPorProdutoEntidades(linhasPecasAntes),
+                agregarPecasPorProdutoRequest(request.pecasEstoque()),
+                os.getOficina()
+        );
 
-        Cliente cliente = resolveClienteParaLancamento(request.clienteId(), request.cliente());
+        Cliente cliente = resolveClienteParaLancamento(request.clienteId(), request.cliente(), os.getOficina());
         os.setPlacaMoto(request.placaMoto());
         os.setClienteRef(cliente);
-        os.setCliente(cliente == null ? null : cliente.getNome());
+        os.setCliente(cliente == null ? null : cliente.getNomeCompleto());
         os.setStatus(request.status());
         ordemServicoRepository.save(os);
 
@@ -174,7 +179,7 @@ public class OrdemServicoService {
         }
 
         List<OsPecaEstoque> linhasPecas = osPecaEstoqueRepository.findByOrdemServicoId(id);
-        aplicarMudancaEstoquePecas(agregarPecasPorProdutoEntidades(linhasPecas), Map.of());
+        aplicarMudancaEstoquePecas(agregarPecasPorProdutoEntidades(linhasPecas), Map.of(), os.getOficina());
 
         osPecaEstoqueRepository.deleteByOrdemServicoId(id);
         osMaoObraRepository.deleteByOrdemServicoId(id);
@@ -190,6 +195,7 @@ public class OrdemServicoService {
             Produto produto = produtoRepository.findById(item.produtoId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto nao encontrado"));
             validarAcessoProduto(produto);
+            validarProdutoDaOficina(produto, os.getOficina());
             OsPecaEstoque peca = new OsPecaEstoque();
             peca.setOrdemServico(os);
             peca.setProduto(produto);
@@ -246,7 +252,10 @@ public class OrdemServicoService {
 
     /** Ajusta estoque pela diferenca entre o que a OS pedia antes e o pedido novo. */
     private void aplicarMudancaEstoquePecas(
-            Map<Integer, Integer> quantidadeAntesPorProduto, Map<Integer, Integer> quantidadeNovoPorProduto) {
+            Map<Integer, Integer> quantidadeAntesPorProduto,
+            Map<Integer, Integer> quantidadeNovoPorProduto,
+            Oficina oficinaLancamento
+    ) {
         Set<Integer> produtoIds = new HashSet<>();
         produtoIds.addAll(quantidadeAntesPorProduto.keySet());
         produtoIds.addAll(quantidadeNovoPorProduto.keySet());
@@ -260,6 +269,7 @@ public class OrdemServicoService {
             Produto produto = produtoRepository.findById(produtoId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto nao encontrado: " + produtoId));
             validarAcessoProduto(produto);
+            validarProdutoDaOficina(produto, oficinaLancamento);
             int novoSaldo = produto.getQtdEstoque() - delta;
             if (novoSaldo < 0) {
                 throw new ResponseStatusException(
@@ -365,11 +375,26 @@ public class OrdemServicoService {
         }
     }
 
-    private Cliente resolveClienteParaLancamento(Integer clienteId, String clienteNome) {
+    private void validarProdutoDaOficina(Produto produto, Oficina oficinaLancamento) {
+        if (oficinaLancamento == null || oficinaLancamento.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OS sem oficina vinculada");
+        }
+        if (produto.getOficina() == null || !oficinaLancamento.getId().equals(produto.getOficina().getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Produto nao pertence a oficina da OS");
+        }
+    }
+
+    private Cliente resolveClienteParaLancamento(Integer clienteId, String clienteNome, Oficina oficinaLancamento) {
+        if (oficinaLancamento == null || oficinaLancamento.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OS sem oficina vinculada");
+        }
         if (clienteId != null) {
             Cliente cliente = clienteRepository.findById(clienteId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cliente nao encontrado"));
             validarAcessoCliente(cliente);
+            if (cliente.getOficina() == null || !oficinaLancamento.getId().equals(cliente.getOficina().getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cliente nao pertence a oficina da OS");
+            }
             return cliente;
         }
 
@@ -378,16 +403,12 @@ public class OrdemServicoService {
             return null;
         }
 
-        SecurityUser current = authContextService.currentUser();
-        if (current.getOficinaId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario sem oficina vinculada");
-        }
-        return clienteRepository.findByOficinaIdAndNomeIgnoreCase(current.getOficinaId(), nome)
+        return clienteRepository.findByOficinaIdAndNomeIgnoreCase(oficinaLancamento.getId(), nome)
                 .orElseGet(() -> {
                     Cliente novo = new Cliente();
                     novo.setNome(nome);
                     novo.setAtivo(true);
-                    novo.setOficina(resolveOficinaAtual());
+                    novo.setOficina(oficinaLancamento);
                     return clienteRepository.save(novo);
                 });
     }
