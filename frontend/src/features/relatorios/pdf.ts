@@ -79,7 +79,7 @@ export async function exportarRelatorioResumoPdf(
     y += 6;
   }
 
-  const graficos = opts.graficos?.filter((g) => g.dataUrl?.length > 32) ?? [];
+  const graficos = opts.graficos?.filter((g) => g.dataUrl?.length > 48) ?? [];
   if (graficos.length > 0) {
     y += 6;
     if (y > pageH - 40) {
@@ -120,7 +120,8 @@ export async function exportarRelatorioResumoPdf(
         doc.addPage();
         y = margem;
       }
-      doc.addImage(dataUrl, "PNG", margem, y, imgW, imgH, undefined, "FAST");
+      const formato = dataUrl.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+      doc.addImage(dataUrl, formato, margem, y, imgW, imgH, undefined, "FAST");
       y += imgH + 8;
     }
   }

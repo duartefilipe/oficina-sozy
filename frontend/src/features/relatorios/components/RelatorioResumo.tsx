@@ -73,6 +73,32 @@ const CHART_COLORS = {
   slate: "#64748b"
 };
 
+/** Aguarda Recharts desenhar SVG nos painéis (evita delay fixo longo). */
+async function aguardarGraficosProntos(root: HTMLElement | null, timeoutMs = 700) {
+  if (!root) return;
+  const deadline = Date.now() + timeoutMs;
+  const paineis = () =>
+    Array.from(root.querySelectorAll<HTMLElement>("[data-rel-grafico-panel]")).filter(
+      (el) => el.dataset.relGraficoExcluir !== "1"
+    );
+  while (Date.now() < deadline) {
+    const lista = paineis();
+    if (lista.length === 0) return;
+    const prontos = lista.every((el) => {
+      const svg = el.querySelector("svg");
+      return svg != null && svg.getBoundingClientRect().width >= 40;
+    });
+    if (prontos) return;
+    await new Promise((r) => setTimeout(r, 40));
+  }
+}
+
+async function aguardarProximoQuadro() {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
 export function RelatorioResumo() {
   const userRole = typeof window !== "undefined" ? localStorage.getItem("auth_user_role") : null;
   const isSuperadmin = userRole === "SUPERADMIN";
@@ -117,24 +143,22 @@ export function RelatorioResumo() {
 
       for (const aba of ordemAbas) {
         setAbaRelatorio(aba);
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-        });
-        await new Promise((r) => setTimeout(r, 450));
+        await aguardarProximoQuadro();
+        await aguardarGraficosProntos(root, 750);
         const paineis = root?.querySelectorAll<HTMLElement>("[data-rel-grafico-panel]");
         if (!paineis?.length) continue;
         for (const el of Array.from(paineis)) {
           if (el.dataset.relGraficoExcluir === "1") continue;
           const titulo = el.dataset.graficoTitulo?.trim() || "Gráfico";
           const canvas = await html2canvas(el, {
-            scale: 2,
+            scale: 1.5,
             useCORS: true,
             logging: false,
             backgroundColor: "#ffffff",
             scrollX: 0,
             scrollY: 0
           });
-          graficos.push({ titulo, dataUrl: canvas.toDataURL("image/png", 0.92) });
+          graficos.push({ titulo, dataUrl: canvas.toDataURL("image/jpeg", 0.72) });
         }
       }
 
