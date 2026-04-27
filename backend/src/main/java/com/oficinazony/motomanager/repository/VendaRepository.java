@@ -17,4 +17,6 @@ public interface VendaRepository extends JpaRepository<Venda, Integer> {
     void desvincularCliente(@Param("clienteId") Integer clienteId);
 
     boolean existsByClienteRefId(Integer clienteId);
+
+    void deleteByOficinaId(Integer oficinaId);
 }

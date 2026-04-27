@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { atualizarOficina, criarOficina, listarOficinas } from "@/features/oficinas/api";
+import { atualizarOficina, criarOficina, listarOficinas, removerOficina } from "@/features/oficinas/api";
 import type { OficinaRequestDto, OficinaUpdateRequestDto } from "@/types";
 
 export function useOficinas() {
@@ -23,5 +23,20 @@ export function useAtualizarOficina() {
     mutationFn: ({ oficinaId, payload }: { oficinaId: number; payload: OficinaUpdateRequestDto }) =>
       atualizarOficina(oficinaId, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["oficinas"] })
+  });
+}
+
+export function useRemoverOficina() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (oficinaId: number) => removerOficina(oficinaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["oficinas"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      queryClient.invalidateQueries({ queryKey: ["ordens-servico"] });
+      queryClient.invalidateQueries({ queryKey: ["vendas"] });
+      queryClient.invalidateQueries({ queryKey: ["usuarios"] });
+    }
   });
 }

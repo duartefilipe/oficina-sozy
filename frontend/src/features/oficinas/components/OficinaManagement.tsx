@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
-import { useAtualizarOficina, useCriarOficina, useOficinas } from "@/features/oficinas/hooks";
+import { useAtualizarOficina, useCriarOficina, useOficinas, useRemoverOficina } from "@/features/oficinas/hooks";
 import { fieldClass, labelClass } from "@/lib/form-styles";
 import { getApiErrorMessage } from "@/lib/utils";
 import type { OficinaResponseDto } from "@/types";
@@ -29,6 +29,7 @@ export function OficinaManagement() {
   const oficinas = useOficinas();
   const criar = useCriarOficina();
   const atualizar = useAtualizarOficina();
+  const remover = useRemoverOficina();
   const form = useForm<FormState>({ resolver: zodResolver(schema), defaultValues: defaultState });
   const editForm = useForm<EditState>({ defaultValues: defaultEdit });
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -43,7 +44,7 @@ export function OficinaManagement() {
         header: "Ações",
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-1.5">
             <Button
               type="button"
               size="sm"
@@ -55,11 +56,36 @@ export function OficinaManagement() {
             >
               Editar
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="danger"
+              onClick={() => {
+                if (
+                  typeof window !== "undefined" &&
+                  !window.confirm(
+                    `Excluir a oficina "${row.original.nome}"? Todos os dados vinculados a ela serão removidos.`
+                  )
+                ) {
+                  return;
+                }
+                remover.mutate(row.original.id, {
+                  onSuccess: () => {
+                    if (editandoId === row.original.id) {
+                      setEditandoId(null);
+                      editForm.reset(defaultEdit);
+                    }
+                  }
+                });
+              }}
+            >
+              Excluir
+            </Button>
           </div>
         )
       }
     ],
-    [editForm]
+    [editForm, editandoId, remover]
   );
 
   const onCreate = (values: FormState) => {
@@ -86,9 +112,9 @@ export function OficinaManagement() {
       <h2 className="text-xl font-semibold">Gestão de Oficinas</h2>
       <p className="mb-4 text-sm text-slate-600">Crie e mantenha oficinas para separar usuários e dados operacionais.</p>
 
-      {(criar.isError || atualizar.isError) ? (
+      {(criar.isError || atualizar.isError || remover.isError) ? (
         <p className="mb-3 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">
-          {getApiErrorMessage(criar.isError ? criar.error : atualizar.error)}
+          {getApiErrorMessage(criar.isError ? criar.error : atualizar.isError ? atualizar.error : remover.error)}
         </p>
       ) : null}
 
@@ -136,6 +162,9 @@ export function OficinaManagement() {
 
       <div className="mt-6">
         <DataTable columns={columns} data={oficinas.data ?? []} searchPlaceholder="Buscar por nome…" pageSize={10} />
+        <p className="mt-2 text-xs text-amber-700">
+          Ao excluir uma oficina, usuários, clientes, estoque, OS, vendas e itens vinculados a ela também serão removidos.
+        </p>
       </div>
     </section>
   );

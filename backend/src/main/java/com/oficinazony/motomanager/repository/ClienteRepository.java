@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     List<Cliente> findByOficinaIdOrderByNomeAsc(Integer oficinaId);
 
+    void deleteByOficinaId(Integer oficinaId);
+
     @Query("""
             select c
             from Cliente c

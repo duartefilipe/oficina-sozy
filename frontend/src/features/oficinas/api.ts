@@ -15,3 +15,7 @@ export async function atualizarOficina(oficinaId: number, payload: OficinaUpdate
   const { data } = await api.put<OficinaResponseDto>(`/oficinas/${oficinaId}`, payload);
   return data;
 }
+
+export async function removerOficina(oficinaId: number) {
+  await api.delete(`/oficinas/${oficinaId}`);
+}
