@@ -44,7 +44,7 @@ public class ProdutoService {
     @Transactional
     public ProdutoResponse criar(ProdutoRequest request) {
         Produto produto = new Produto();
-        produto.setOficina(resolveOficinaAtual());
+        produto.setOficina(resolveOficinaParaCriacao(request));
         aplicarRequest(produto, request);
         return toResponse(produtoRepository.save(produto));
     }
@@ -95,15 +95,21 @@ public class ProdutoService {
         );
     }
 
-    private Oficina resolveOficinaAtual() {
+    private Oficina resolveOficinaParaCriacao(ProdutoRequest request) {
         SecurityUser current = authContextService.currentUser();
         if (current.getRole() == UserRole.SUPERADMIN) {
-            if (current.getOficinaId() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe oficina para criar produto");
+            Integer id = request.oficinaId() != null ? request.oficinaId() : current.getOficinaId();
+            if (id == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe oficinaId no corpo ou vincule oficina ao superadmin para criar produto");
             }
+            return oficinaRepository.findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Oficina nao encontrada"));
         }
         if (current.getOficinaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario sem oficina vinculada");
+        }
+        if (request.oficinaId() != null && !request.oficinaId().equals(current.getOficinaId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nao e permitido criar produto em outra oficina");
         }
         return oficinaRepository.findById(current.getOficinaId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Oficina nao encontrada"));
