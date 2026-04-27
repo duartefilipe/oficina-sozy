@@ -83,6 +83,8 @@ public class ProdutoService {
                 produto.getId(),
                 produto.getSku(),
                 produto.getNome(),
+                produto.getOficina() != null ? produto.getOficina().getId() : null,
+                produto.getOficina() != null ? produto.getOficina().getNome() : null,
                 produto.getTipo(),
                 produto.getPrecoCusto(),
                 produto.getPrecoVenda(),

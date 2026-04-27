@@ -13,7 +13,7 @@ import {
   type Row,
   type SortingState
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ interface DataTableProps<TData> {
   pageSize?: number;
   getRowId?: (row: TData, index: number) => string;
   className?: string;
+  toolbar?: ReactNode;
 }
 
 export function DataTable<TData>({
@@ -45,7 +46,8 @@ export function DataTable<TData>({
   searchPlaceholder = "Procurar…",
   pageSize = 10,
   getRowId,
-  className
+  className,
+  toolbar
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -81,19 +83,24 @@ export function DataTable<TData>({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <label className="sr-only" htmlFor="dt-search">
-          Pesquisa na tabela
-        </label>
-        <input
-          id="dt-search"
-          type="search"
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder={searchPlaceholder}
-          className={searchInputClass}
-          autoComplete="off"
-        />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div>
+            <label className="sr-only" htmlFor="dt-search">
+              Pesquisa na tabela
+            </label>
+            <input
+              id="dt-search"
+              type="search"
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder={searchPlaceholder}
+              className={searchInputClass}
+              autoComplete="off"
+            />
+          </div>
+          {toolbar}
+        </div>
         <p className="text-sm text-slate-600" aria-live="polite">
           {pageInfo}
         </p>

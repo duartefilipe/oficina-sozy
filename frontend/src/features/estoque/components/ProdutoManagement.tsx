@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useCriarProduto, useProdutos, useRemoverProduto } from "@/features/estoque/hooks";
 import type { ProdutoPayload } from "@/features/estoque/api";
 import { ProdutoEditorForm } from "@/features/estoque/components/ProdutoEditorForm";
+import { useOficinas } from "@/features/oficinas/hooks";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { fieldClass, labelClass } from "@/lib/form-styles";
@@ -74,6 +75,12 @@ function ResumoProduto({ p, onEditar }: { p: ProdutoDto; onEditar: () => void })
           <dt className="text-xs font-medium uppercase text-slate-500">Tipo</dt>
           <dd>{p.tipo}</dd>
         </div>
+        {p.oficinaNome ? (
+          <div className="sm:col-span-2">
+            <dt className="text-xs font-medium uppercase text-slate-500">Oficina</dt>
+            <dd className="font-medium">{p.oficinaNome}</dd>
+          </div>
+        ) : null}
         <div className="sm:col-span-2">
           <dt className="text-xs font-medium uppercase text-slate-500">Nome</dt>
           <dd className="font-medium">{p.nome}</dd>
@@ -115,11 +122,15 @@ function ResumoProduto({ p, onEditar }: { p: ProdutoDto; onEditar: () => void })
 }
 
 export function ProdutoManagement() {
+  const userRole = localStorage.getItem("auth_user_role");
+  const isSuperadmin = userRole === "SUPERADMIN";
   const produtos = useProdutos();
+  const oficinas = useOficinas();
   const criar = useCriarProduto();
   const remover = useRemoverProduto();
   const [modalNovo, setModalNovo] = useState(false);
   const [painel, setPainel] = useState<PainelProduto>(null);
+  const [oficinaFiltro, setOficinaFiltro] = useState("");
 
   const formNovo = useForm<NovaProdutoValues>({
     resolver: zodResolver(novaProdutoSchema),
@@ -130,6 +141,13 @@ export function ProdutoManagement() {
     if (!painel) return null;
     return produtos.data?.find((x) => x.id === painel.id) ?? null;
   }, [painel, produtos.data]);
+
+  const produtosFiltrados = useMemo(() => {
+    const lista = produtos.data ?? [];
+    if (!isSuperadmin || !oficinaFiltro) return lista;
+    const oficinaId = Number(oficinaFiltro);
+    return lista.filter((produto) => produto.oficinaId === oficinaId);
+  }, [isSuperadmin, oficinaFiltro, produtos.data]);
 
   const onNovoSubmit = (v: NovaProdutoValues) => {
     const payload: ProdutoPayload = {
@@ -153,6 +171,15 @@ export function ProdutoManagement() {
     () => [
       { accessorKey: "id", header: "ID", size: 60 },
       { accessorKey: "nome", header: "Nome" },
+      ...(isSuperadmin
+        ? [
+            {
+              accessorKey: "oficinaNome",
+              header: "Oficina",
+              cell: ({ getValue }) => (getValue() as string) || "—"
+            } satisfies ColumnDef<ProdutoDto>
+          ]
+        : []),
       { accessorKey: "tipo", header: "Tipo" },
       { accessorKey: "sku", header: "SKU", cell: ({ getValue }) => (getValue() as string) || "—" },
       {
@@ -208,7 +235,7 @@ export function ProdutoManagement() {
         )
       }
     ],
-    [remover]
+    [isSuperadmin, remover]
   );
 
   const tituloPainel =
@@ -264,9 +291,32 @@ export function ProdutoManagement() {
 
       <DataTable
         columns={columns}
-        data={produtos.data ?? []}
-        searchPlaceholder="Buscar por nome, SKU, tipo…"
+        data={produtosFiltrados}
+        searchPlaceholder={isSuperadmin ? "Buscar por nome, SKU, tipo ou oficina…" : "Buscar por nome, SKU, tipo…"}
         pageSize={10}
+        toolbar={
+          isSuperadmin ? (
+            <div className="flex flex-col gap-1 sm:min-w-56">
+              <label className={labelClass} htmlFor="estoque-oficina-filtro">
+                Filtrar por oficina
+              </label>
+              <select
+                id="estoque-oficina-filtro"
+                className={fieldClass}
+                value={oficinaFiltro}
+                onChange={(event) => setOficinaFiltro(event.target.value)}
+                disabled={oficinas.isLoading}
+              >
+                <option value="">Todas as oficinas</option>
+                {(oficinas.data ?? []).map((oficina) => (
+                  <option key={oficina.id} value={String(oficina.id)}>
+                    {oficina.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null
+        }
       />
 
       <ModalShell open={modalNovo} title="Novo produto" onClose={() => setModalNovo(false)} wide={false}>

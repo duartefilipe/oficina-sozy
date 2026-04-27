@@ -7,6 +7,8 @@ public record ProdutoResponse(
         Integer id,
         String sku,
         String nome,
+        Integer oficinaId,
+        String oficinaNome,
         ProdutoTipo tipo,
         BigDecimal precoCusto,
         BigDecimal precoVenda,
