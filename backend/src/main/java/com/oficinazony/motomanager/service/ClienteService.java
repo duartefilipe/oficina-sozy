@@ -108,6 +108,11 @@ public class ClienteService {
     }
 
     @Transactional(readOnly = true)
+    public ClienteResponse buscar(Integer id) {
+        return toResponse(buscarEntidadeComAcesso(id));
+    }
+
+    @Transactional(readOnly = true)
     public ClienteHistoricoResponse historico(Integer clienteId) {
         Cliente cliente = buscarEntidadeComAcesso(clienteId);
 
@@ -205,7 +210,7 @@ public class ClienteService {
     }
 
     private void validarNomeUnico(Integer oficinaId, String nome, String sobrenome, Integer clienteAtualId) {
-        clienteRepository.findByOficinaIdAndNomeIgnoreCaseAndSobrenomeNormalizadoIgnoreCase(oficinaId, nome, sobrenome == null ? "" : sobrenome)
+        clienteRepository.findDuplicadoPorNomeCompleto(oficinaId, nome, sobrenome == null ? "" : sobrenome)
                 .ifPresent(clienteExistente -> {
                     if (clienteAtualId == null || !clienteAtualId.equals(clienteExistente.getId())) {
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "Ja existe cliente com este nome nesta oficina");

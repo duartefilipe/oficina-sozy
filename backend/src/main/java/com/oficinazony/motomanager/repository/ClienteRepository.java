@@ -15,6 +15,18 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
             from Cliente c
             where c.oficina.id = :oficinaId
               and lower(c.nome) = lower(:nome)
+              and coalesce(c.sobrenome, '') = ''
+            """)
+    Optional<Cliente> findByOficinaIdAndNomeIgnoreCase(
+            @Param("oficinaId") Integer oficinaId,
+            @Param("nome") String nome
+    );
+
+    @Query("""
+            select c
+            from Cliente c
+            where c.oficina.id = :oficinaId
+              and lower(c.nome) = lower(:nome)
               and lower(coalesce(c.sobrenome, '')) = lower(:sobrenome)
             """)
     Optional<Cliente> findDuplicadoPorNomeCompleto(
