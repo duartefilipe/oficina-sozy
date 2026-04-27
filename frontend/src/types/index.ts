@@ -71,6 +71,8 @@ export interface ProdutoDto {
   id: number;
   sku?: string;
   nome: string;
+  oficinaId?: number;
+  oficinaNome?: string;
   tipo: ProdutoTipo;
   precoCusto: number;
   precoVenda: number;
