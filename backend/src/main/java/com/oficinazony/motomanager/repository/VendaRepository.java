@@ -15,4 +15,6 @@ public interface VendaRepository extends JpaRepository<Venda, Integer> {
     @Modifying
     @Query("update Venda v set v.clienteRef = null where v.clienteRef.id = :clienteId")
     void desvincularCliente(@Param("clienteId") Integer clienteId);
+
+    boolean existsByClienteRefId(Integer clienteId);
 }

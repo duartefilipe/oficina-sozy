@@ -12,6 +12,8 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Inte
 
     List<OrdemServico> findByClienteRefIdOrderByDataAberturaDesc(Integer clienteId);
 
+    boolean existsByClienteRefId(Integer clienteId);
+
     @Modifying
     @Query("update OrdemServico os set os.clienteRef = null where os.clienteRef.id = :clienteId")
     void desvincularCliente(@Param("clienteId") Integer clienteId);
