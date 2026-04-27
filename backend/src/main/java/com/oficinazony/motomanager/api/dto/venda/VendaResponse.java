@@ -7,6 +7,7 @@ import java.util.List;
 
 public record VendaResponse(
         Integer id,
+        Integer clienteId,
         String cliente,
         LocalDateTime dataVenda,
         BigDecimal valorTotal,

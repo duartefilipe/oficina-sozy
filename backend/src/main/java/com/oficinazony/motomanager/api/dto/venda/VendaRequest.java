@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public record VendaRequest(
+        Integer clienteId,
         String cliente,
         @NotNull VendaStatus status,
         @Valid List<VendaItemRequest> itens

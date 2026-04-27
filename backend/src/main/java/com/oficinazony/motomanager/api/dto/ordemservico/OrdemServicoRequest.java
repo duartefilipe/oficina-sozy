@@ -8,6 +8,7 @@ import java.util.List;
 
 public record OrdemServicoRequest(
         @NotBlank String placaMoto,
+        Integer clienteId,
         String cliente,
         @NotNull OrdemServicoStatus status,
         @Valid List<OrdemServicoPecaRequest> pecasEstoque,

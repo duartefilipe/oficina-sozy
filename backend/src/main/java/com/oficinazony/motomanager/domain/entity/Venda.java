@@ -25,6 +25,10 @@ public class Venda {
     @Column(length = 100)
     private String cliente;
 
+    @ManyToOne
+    @JoinColumn(name = "cliente_id")
+    private Cliente clienteRef;
+
     @Column(name = "data_venda", nullable = false)
     private LocalDateTime dataVenda = LocalDateTime.now();
 
@@ -53,6 +57,14 @@ public class Venda {
 
     public void setCliente(String cliente) {
         this.cliente = cliente;
+    }
+
+    public Cliente getClienteRef() {
+        return clienteRef;
+    }
+
+    public void setClienteRef(Cliente clienteRef) {
+        this.clienteRef = clienteRef;
     }
 
     public LocalDateTime getDataVenda() {

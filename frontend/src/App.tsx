@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { me } from "@/features/auth/api";
+import { ClienteManagement } from "@/features/clientes/components/ClienteManagement";
 import { ProdutoManagement } from "@/features/estoque/components/ProdutoManagement";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { HomeDashboard } from "@/features/home/components/HomeDashboard";
@@ -68,6 +69,7 @@ function App() {
         <TabsList>
           <TabsTrigger value="home">Home</TabsTrigger>
           <TabsTrigger value="oficina">Oficina</TabsTrigger>
+          <TabsTrigger value="clientes">Clientes</TabsTrigger>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
           <TabsTrigger value="vendas">Vendas</TabsTrigger>
           {userRole === "SUPERADMIN" ? <TabsTrigger value="oficinas">Oficinas</TabsTrigger> : null}
@@ -79,6 +81,9 @@ function App() {
         </TabsContent>
         <TabsContent value="oficina">
           <OrdemServicoForm />
+        </TabsContent>
+        <TabsContent value="clientes">
+          <ClienteManagement />
         </TabsContent>
         <TabsContent value="estoque">
           <ProdutoManagement />

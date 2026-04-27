@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, type ChangeEvent } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
+import { useClientes } from "@/features/clientes/hooks";
 import { useProdutos } from "@/features/estoque/hooks";
 import { useAtualizarOrdemServico } from "@/features/oficina/hooks";
 import { Button } from "@/components/ui/button";
@@ -40,11 +41,20 @@ const formSchema = z.object({
     .string()
     .trim()
     .min(1, "Informe a placa da moto (obrigatorio para salvar a OS)."),
-  cliente: z.string().optional(),
+  clienteSelecionado: z.string().min(1, "Selecione um cliente."),
+  novoClienteNome: z.string().optional(),
   status: z.enum(["ABERTA", "EM_EXECUCAO", "FINALIZADA", "PAGA"]),
   pecasEstoque: z.array(itemPecaSchema),
   servicos: z.array(itemMaoObraSchema),
   custosExternos: z.array(itemCustoExternoSchema)
+}).superRefine((values, ctx) => {
+  if (values.clienteSelecionado === "NOVO" && !values.novoClienteNome?.trim()) {
+    ctx.addIssue({
+      path: ["novoClienteNome"],
+      code: "custom",
+      message: "Informe o nome do cliente para cadastro rápido."
+    });
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -52,7 +62,8 @@ type FormValues = z.infer<typeof formSchema>;
 function osParaValores(os: OrdemServicoResponseDto): FormValues {
   return {
     placaMoto: os.placaMoto,
-    cliente: os.cliente ?? "",
+    clienteSelecionado: os.clienteId ? String(os.clienteId) : "NOVO",
+    novoClienteNome: os.clienteId ? "" : (os.cliente ?? ""),
     status: os.status,
     pecasEstoque: os.pecasEstoque.map((p) => ({
       produtoId: p.produtoId,
@@ -80,6 +91,7 @@ type Props = {
 
 export function OrdemServicoEditorForm({ osId, initialOs, onCancel, onSaved }: Props) {
   const atualizarMutacao = useAtualizarOrdemServico();
+  const clientesQuery = useClientes();
   const produtosQuery = useProdutos();
   const pecas = useMemo(() => (produtosQuery.data ?? []).filter((p) => p.tipo === "PECA"), [produtosQuery.data]);
 
@@ -94,6 +106,8 @@ export function OrdemServicoEditorForm({ osId, initialOs, onCancel, onSaved }: P
   const custosExternosArray = useFieldArray({ control: form.control, name: "custosExternos" });
 
   const onSubmit = (raw: FormValues) => {
+    const clienteId = raw.clienteSelecionado === "NOVO" ? undefined : Number(raw.clienteSelecionado);
+    const clienteNome = raw.clienteSelecionado === "NOVO" ? raw.novoClienteNome?.trim() : undefined;
     const values: FormValues = {
       ...raw,
       pecasEstoque: raw.pecasEstoque.map((linha) => {
@@ -103,7 +117,14 @@ export function OrdemServicoEditorForm({ osId, initialOs, onCancel, onSaved }: P
     };
 
     atualizarMutacao.mutate(
-      { id: osId, payload: values as OrdemServicoRequestDto },
+      {
+        id: osId,
+        payload: {
+          ...(values as OrdemServicoRequestDto),
+          clienteId: Number.isFinite(clienteId as number) ? (clienteId as number) : undefined,
+          cliente: clienteNome
+        }
+      },
       {
         onSuccess: () => onSaved()
       }
@@ -159,7 +180,23 @@ export function OrdemServicoEditorForm({ osId, initialOs, onCancel, onSaved }: P
           <label className={labelClass} htmlFor="os-edit-cliente">
             Cliente
           </label>
-          <input id="os-edit-cliente" className={fieldClass} placeholder="Cliente" {...form.register("cliente")} />
+          <select id="os-edit-cliente" className={fieldClass} {...form.register("clienteSelecionado")}>
+            <option value="NOVO">Cadastrar cliente</option>
+            {(clientesQuery.data ?? [])
+              .filter((c) => c.ativo)
+              .map((cliente) => (
+                <option key={cliente.id} value={String(cliente.id)}>
+                  {cliente.nome}
+                </option>
+              ))}
+          </select>
+          {form.watch("clienteSelecionado") === "NOVO" ? (
+            <input
+              className={`${fieldClass} mt-2`}
+              placeholder="Nome do cliente"
+              {...form.register("novoClienteNome")}
+            />
+          ) : null}
         </div>
         <div>
           <label className={labelClass} htmlFor="os-edit-status">

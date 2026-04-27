@@ -21,6 +21,7 @@ export interface OrdemServicoCustoExternoRequestDto {
 
 export interface OrdemServicoRequestDto {
   placaMoto: string;
+  clienteId?: number;
   cliente?: string;
   status: OrdemServicoStatus;
   pecasEstoque: OrdemServicoPecaRequestDto[];
@@ -52,6 +53,7 @@ export interface OrdemServicoCustoExternoResponseDto {
 export interface OrdemServicoResponseDto {
   id: number;
   placaMoto: string;
+  clienteId?: number;
   cliente?: string;
   status: OrdemServicoStatus;
   dataAbertura: string;
@@ -85,6 +87,7 @@ export interface VendaItemRequestDto {
 }
 
 export interface VendaRequestDto {
+  clienteId?: number;
   cliente?: string;
   status: VendaStatus;
   itens: VendaItemRequestDto[];
@@ -100,6 +103,7 @@ export interface VendaItemResponseDto {
 
 export interface VendaResponseDto {
   id: number;
+  clienteId?: number;
   cliente?: string;
   dataVenda: string;
   valorTotal: number;
@@ -180,6 +184,37 @@ export interface OficinaResponseDto {
   id: number;
   nome: string;
   ativo: boolean;
+}
+
+export interface ClienteRequestDto {
+  oficinaId?: number;
+  nome: string;
+}
+
+export interface ClienteUpdateRequestDto {
+  nome: string;
+  ativo: boolean;
+}
+
+export interface ClienteResponseDto {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface ClienteHistoricoItemResponseDto {
+  id: number;
+  tipo: "ORDEM_SERVICO" | "VENDA";
+  descricao: string;
+  status: string;
+  data: string;
+  valorTotal: number;
+}
+
+export interface ClienteHistoricoResponseDto {
+  clienteId: number;
+  clienteNome: string;
+  itens: ClienteHistoricoItemResponseDto[];
 }
 
 export interface RelatorioResumoDto {

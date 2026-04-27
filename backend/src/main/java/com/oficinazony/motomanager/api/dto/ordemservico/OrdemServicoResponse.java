@@ -8,6 +8,7 @@ import java.util.List;
 public record OrdemServicoResponse(
         Integer id,
         String placaMoto,
+        Integer clienteId,
         String cliente,
         OrdemServicoStatus status,
         LocalDateTime dataAbertura,

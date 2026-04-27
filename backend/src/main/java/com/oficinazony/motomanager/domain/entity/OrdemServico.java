@@ -28,6 +28,10 @@ public class OrdemServico {
     @Column(length = 100)
     private String cliente;
 
+    @ManyToOne
+    @JoinColumn(name = "cliente_id")
+    private Cliente clienteRef;
+
     @Column(name = "data_abertura", nullable = false)
     private LocalDateTime dataAbertura = LocalDateTime.now();
 
@@ -64,6 +68,14 @@ public class OrdemServico {
 
     public void setCliente(String cliente) {
         this.cliente = cliente;
+    }
+
+    public Cliente getClienteRef() {
+        return clienteRef;
+    }
+
+    public void setClienteRef(Cliente clienteRef) {
+        this.clienteRef = clienteRef;
     }
 
     public LocalDateTime getDataAbertura() {

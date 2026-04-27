@@ -8,6 +8,7 @@ import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoPecaRequest;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoPecaResponse;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoRequest;
 import com.oficinazony.motomanager.api.dto.ordemservico.OrdemServicoResponse;
+import com.oficinazony.motomanager.domain.entity.Cliente;
 import com.oficinazony.motomanager.domain.entity.Oficina;
 import com.oficinazony.motomanager.domain.entity.OrdemServico;
 import com.oficinazony.motomanager.domain.entity.OsCustoExterno;
@@ -16,6 +17,7 @@ import com.oficinazony.motomanager.domain.entity.OsPecaEstoque;
 import com.oficinazony.motomanager.domain.entity.Produto;
 import com.oficinazony.motomanager.domain.enums.OrdemServicoStatus;
 import com.oficinazony.motomanager.domain.enums.UserRole;
+import com.oficinazony.motomanager.repository.ClienteRepository;
 import com.oficinazony.motomanager.repository.OficinaRepository;
 import com.oficinazony.motomanager.repository.OrdemServicoRepository;
 import com.oficinazony.motomanager.repository.OsCustoExternoRepository;
@@ -44,6 +46,7 @@ public class OrdemServicoService {
     private final OsMaoObraRepository osMaoObraRepository;
     private final OsCustoExternoRepository osCustoExternoRepository;
     private final OficinaRepository oficinaRepository;
+    private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
     private final AuthContextService authContextService;
 
@@ -53,6 +56,7 @@ public class OrdemServicoService {
             OsMaoObraRepository osMaoObraRepository,
             OsCustoExternoRepository osCustoExternoRepository,
             OficinaRepository oficinaRepository,
+            ClienteRepository clienteRepository,
             ProdutoRepository produtoRepository,
             AuthContextService authContextService
     ) {
@@ -61,6 +65,7 @@ public class OrdemServicoService {
         this.osMaoObraRepository = osMaoObraRepository;
         this.osCustoExternoRepository = osCustoExternoRepository;
         this.oficinaRepository = oficinaRepository;
+        this.clienteRepository = clienteRepository;
         this.produtoRepository = produtoRepository;
         this.authContextService = authContextService;
     }
@@ -68,8 +73,10 @@ public class OrdemServicoService {
     @Transactional
     public OrdemServicoResponse criar(OrdemServicoRequest request) {
         OrdemServico os = new OrdemServico();
+        Cliente cliente = resolveClienteParaLancamento(request.clienteId(), request.cliente());
         os.setPlacaMoto(request.placaMoto());
-        os.setCliente(request.cliente());
+        os.setClienteRef(cliente);
+        os.setCliente(cliente == null ? null : cliente.getNome());
         os.setStatus(request.status());
         os.setOficina(resolveOficinaAtual());
         os = ordemServicoRepository.save(os);
@@ -136,8 +143,10 @@ public class OrdemServicoService {
         List<OsPecaEstoque> linhasPecasAntes = osPecaEstoqueRepository.findByOrdemServicoId(id);
         aplicarMudancaEstoquePecas(agregarPecasPorProdutoEntidades(linhasPecasAntes), agregarPecasPorProdutoRequest(request.pecasEstoque()));
 
+        Cliente cliente = resolveClienteParaLancamento(request.clienteId(), request.cliente());
         os.setPlacaMoto(request.placaMoto());
-        os.setCliente(request.cliente());
+        os.setClienteRef(cliente);
+        os.setCliente(cliente == null ? null : cliente.getNome());
         os.setStatus(request.status());
         ordemServicoRepository.save(os);
 
@@ -310,7 +319,8 @@ public class OrdemServicoService {
         return new OrdemServicoResponse(
                 os.getId(),
                 os.getPlacaMoto(),
-                os.getCliente(),
+                os.getClienteRef() == null ? null : os.getClienteRef().getId(),
+                os.getClienteRef() == null ? os.getCliente() : os.getClienteRef().getNome(),
                 os.getStatus(),
                 os.getDataAbertura(),
                 os.getValorTotal(),
@@ -350,6 +360,43 @@ public class OrdemServicoService {
         }
         if (produto.getOficina() == null || current.getOficinaId() == null || !current.getOficinaId().equals(produto.getOficina().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissao para produto de outra oficina");
+        }
+    }
+
+    private Cliente resolveClienteParaLancamento(Integer clienteId, String clienteNome) {
+        if (clienteId != null) {
+            Cliente cliente = clienteRepository.findById(clienteId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cliente nao encontrado"));
+            validarAcessoCliente(cliente);
+            return cliente;
+        }
+
+        String nome = clienteNome == null ? "" : clienteNome.trim();
+        if (nome.isEmpty()) {
+            return null;
+        }
+
+        SecurityUser current = authContextService.currentUser();
+        if (current.getOficinaId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario sem oficina vinculada");
+        }
+        return clienteRepository.findByOficinaIdAndNomeIgnoreCase(current.getOficinaId(), nome)
+                .orElseGet(() -> {
+                    Cliente novo = new Cliente();
+                    novo.setNome(nome);
+                    novo.setAtivo(true);
+                    novo.setOficina(resolveOficinaAtual());
+                    return clienteRepository.save(novo);
+                });
+    }
+
+    private void validarAcessoCliente(Cliente cliente) {
+        SecurityUser current = authContextService.currentUser();
+        if (current.getRole() == UserRole.SUPERADMIN) {
+            return;
+        }
+        if (cliente.getOficina() == null || current.getOficinaId() == null || !current.getOficinaId().equals(cliente.getOficina().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissao para cliente de outra oficina");
         }
     }
 }

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { useClientes } from "@/features/clientes/hooks";
 import { useCriarOrdemServico, useOrdemServico, useOrdensServico, useRemoverOrdemServico } from "@/features/oficina/hooks";
 import { OrdemServicoEditorForm } from "@/features/oficina/components/OrdemServicoEditorForm";
 import { fieldClass, labelClass } from "@/lib/form-styles";
@@ -13,7 +14,16 @@ import type { OrdemServicoRequestDto, OrdemServicoResponseDto } from "@/types";
 
 const novaOsSchema = z.object({
   placaMoto: z.string().trim().min(1, "Informe a placa do veículo."),
-  cliente: z.string().trim().min(1, "Informe o nome do cliente.")
+  clienteSelecionado: z.string().min(1, "Selecione um cliente."),
+  novoClienteNome: z.string().optional()
+}).superRefine((values, ctx) => {
+  if (values.clienteSelecionado === "NOVO" && !values.novoClienteNome?.trim()) {
+    ctx.addIssue({
+      path: ["novoClienteNome"],
+      code: "custom",
+      message: "Informe o nome do cliente para cadastro rápido."
+    });
+  }
 });
 
 type NovaOsValues = z.infer<typeof novaOsSchema>;
@@ -147,6 +157,7 @@ function ResumoOrdemServico({ os, onEditar }: { os: OrdemServicoResponseDto; onE
 export function OrdemServicoForm() {
   const criarMutacao = useCriarOrdemServico();
   const removerMutacao = useRemoverOrdemServico();
+  const clientesQuery = useClientes();
   const ordensQuery = useOrdensServico();
   const [modalNovaOs, setModalNovaOs] = useState(false);
   const [painel, setPainel] = useState<PainelOs>(null);
@@ -156,13 +167,16 @@ export function OrdemServicoForm() {
 
   const formNovaOs = useForm<NovaOsValues>({
     resolver: zodResolver(novaOsSchema),
-    defaultValues: { placaMoto: "", cliente: "" }
+    defaultValues: { placaMoto: "", clienteSelecionado: "NOVO", novoClienteNome: "" }
   });
 
   const onNovaOsSubmit = (v: NovaOsValues) => {
+    const clienteId = v.clienteSelecionado === "NOVO" ? undefined : Number(v.clienteSelecionado);
+    const clienteNome = v.clienteSelecionado === "NOVO" ? (v.novoClienteNome?.trim() ?? "") : undefined;
     const payload: OrdemServicoRequestDto = {
       placaMoto: v.placaMoto.trim(),
-      cliente: v.cliente.trim(),
+      clienteId: Number.isFinite(clienteId as number) ? (clienteId as number) : undefined,
+      cliente: clienteNome,
       status: "ABERTA",
       pecasEstoque: [],
       servicos: [],
@@ -171,7 +185,7 @@ export function OrdemServicoForm() {
     criarMutacao.mutate(payload, {
       onSuccess: () => {
         setModalNovaOs(false);
-        formNovaOs.reset({ placaMoto: "", cliente: "" });
+        formNovaOs.reset({ placaMoto: "", clienteSelecionado: "NOVO", novoClienteNome: "" });
       }
     });
   };
@@ -328,11 +342,32 @@ export function OrdemServicoForm() {
           </div>
           <div>
             <label className={labelClass} htmlFor="nova-os-cliente">
-              Nome do cliente
+              Cliente
             </label>
-            <input id="nova-os-cliente" className={fieldClass} placeholder="Nome completo" {...formNovaOs.register("cliente")} />
-            {formNovaOs.formState.errors.cliente && (
-              <p className="mt-1 text-xs text-red-600">{formNovaOs.formState.errors.cliente.message}</p>
+            <select id="nova-os-cliente" className={fieldClass} {...formNovaOs.register("clienteSelecionado")}>
+              <option value="NOVO">Cadastrar cliente</option>
+              {(clientesQuery.data ?? [])
+                .filter((c) => c.ativo)
+                .map((cliente) => (
+                  <option key={cliente.id} value={String(cliente.id)}>
+                    {cliente.nome}
+                  </option>
+                ))}
+            </select>
+            {formNovaOs.watch("clienteSelecionado") === "NOVO" ? (
+              <div className="mt-2">
+                <input
+                  className={fieldClass}
+                  placeholder="Nome do cliente"
+                  {...formNovaOs.register("novoClienteNome")}
+                />
+              </div>
+            ) : null}
+            {formNovaOs.formState.errors.clienteSelecionado && (
+              <p className="mt-1 text-xs text-red-600">{formNovaOs.formState.errors.clienteSelecionado.message}</p>
+            )}
+            {formNovaOs.formState.errors.novoClienteNome && (
+              <p className="mt-1 text-xs text-red-600">{formNovaOs.formState.errors.novoClienteNome.message}</p>
             )}
           </div>
           <div className="flex flex-wrap gap-2 pt-2">

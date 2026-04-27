@@ -3,7 +3,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
+import { useClientes, useCriarCliente } from "@/features/clientes/hooks";
 import { useProdutos } from "@/features/estoque/hooks";
+import { useOficinas } from "@/features/oficinas/hooks";
 import { useCriarVendaRapida, useVendas, useAtualizarStatusVenda, useAtualizarVenda } from "@/features/vendas/hooks";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -12,7 +14,9 @@ import { getApiErrorMessage } from "@/lib/utils";
 import type { VendaRequestDto, VendaResponseDto } from "@/types";
 
 interface VendaFormValues {
-  cliente: string;
+  clienteSelecionado: string;
+  novoClienteNome: string;
+  novaClienteOficinaId?: string;
   status: "PENDENTE" | "PAGA";
   itens: Array<{
     produtoId: number;
@@ -21,10 +25,18 @@ interface VendaFormValues {
   }>;
 }
 
-const defaultValues: VendaFormValues = { cliente: "", status: "PENDENTE", itens: [{ produtoId: 0, quantidade: 1, valorUnitario: 0 }] };
+const defaultValues: VendaFormValues = {
+  clienteSelecionado: "NOVO",
+  novoClienteNome: "",
+  novaClienteOficinaId: "",
+  status: "PENDENTE",
+  itens: [{ produtoId: 0, quantidade: 1, valorUnitario: 0 }]
+};
 
 const novaVendaSchema = z.object({
-  cliente: z.string().optional(),
+  clienteSelecionado: z.string().min(1, "Selecione um cliente."),
+  novoClienteNome: z.string().optional(),
+  novaClienteOficinaId: z.string().optional(),
   status: z.enum(["PENDENTE", "PAGA"]),
   itens: z
     .array(
@@ -35,6 +47,24 @@ const novaVendaSchema = z.object({
       })
     )
     .min(1, "Adicione ao menos um item.")
+}).superRefine((values, ctx) => {
+  const userRole = localStorage.getItem("auth_user_role");
+  if (values.clienteSelecionado === "NOVO") {
+    if (!values.novoClienteNome?.trim()) {
+      ctx.addIssue({
+        path: ["novoClienteNome"],
+        code: "custom",
+        message: "Informe o nome do cliente para cadastro rápido."
+      });
+    }
+    if (userRole === "SUPERADMIN" && !values.novaClienteOficinaId) {
+      ctx.addIssue({
+        path: ["novaClienteOficinaId"],
+        code: "custom",
+        message: "Selecione a oficina do cliente."
+      });
+    }
+  }
 });
 
 function moeda(valor: number) {
@@ -194,6 +224,10 @@ function VendaResumo({
 }
 
 export function VendaRapidaForm() {
+  const userRole = localStorage.getItem("auth_user_role");
+  const clientesQuery = useClientes();
+  const criarCliente = useCriarCliente();
+  const oficinasQuery = useOficinas();
   const criarVenda = useCriarVendaRapida();
   const atualizarVenda = useAtualizarVenda();
   const vendasQuery = useVendas();
@@ -226,7 +260,9 @@ export function VendaRapidaForm() {
     setBuscaProdutoPorLinha(buscaInicial);
     setLinhaComboboxAberta(null);
     form.reset({
-      cliente: venda.cliente ?? "",
+      clienteSelecionado: venda.clienteId ? String(venda.clienteId) : "NOVO",
+      novoClienteNome: venda.clienteId ? "" : (venda.cliente ?? ""),
+      novaClienteOficinaId: "",
       status: venda.status === "CANCELADA" ? "PENDENTE" : venda.status,
       itens: venda.itens.map((item) => ({
         produtoId: item.produtoId,
@@ -245,9 +281,21 @@ export function VendaRapidaForm() {
     form.reset(defaultValues);
   };
 
-  const onSubmit = (values: VendaFormValues) => {
+  const onSubmit = async (values: VendaFormValues) => {
+    let clienteId: number | undefined =
+      values.clienteSelecionado !== "NOVO" ? Number(values.clienteSelecionado) : undefined;
+
+    if (values.clienteSelecionado === "NOVO") {
+      const novoCliente = await criarCliente.mutateAsync({
+        nome: values.novoClienteNome.trim(),
+        oficinaId: userRole === "SUPERADMIN" && values.novaClienteOficinaId ? Number(values.novaClienteOficinaId) : undefined
+      });
+      clienteId = novoCliente.id;
+    }
+
     const payload: VendaRequestDto = {
-      cliente: values.cliente?.trim() || undefined,
+      clienteId,
+      cliente: undefined,
       status: values.status,
       itens: values.itens.map((item) => ({
         produtoId: Number(item.produtoId),
@@ -350,9 +398,11 @@ export function VendaRapidaForm() {
         wide
       >
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          {criarVenda.isError || atualizarVenda.isError ? (
+          {criarVenda.isError || atualizarVenda.isError || criarCliente.isError ? (
             <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">
-              {getApiErrorMessage(criarVenda.isError ? criarVenda.error : atualizarVenda.error)}
+              {getApiErrorMessage(
+                criarCliente.isError ? criarCliente.error : criarVenda.isError ? criarVenda.error : atualizarVenda.error
+              )}
             </p>
           ) : null}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -360,7 +410,41 @@ export function VendaRapidaForm() {
               <label className={labelClass} htmlFor="v-cliente">
                 Cliente
               </label>
-              <input id="v-cliente" className={fieldClass} placeholder="Cliente" {...form.register("cliente")} />
+              <select id="v-cliente" className={fieldClass} {...form.register("clienteSelecionado")}>
+                <option value="NOVO">Cadastrar cliente</option>
+                {(clientesQuery.data ?? [])
+                  .filter((c) => c.ativo)
+                  .map((cliente) => (
+                    <option key={cliente.id} value={String(cliente.id)}>
+                      {cliente.nome}
+                    </option>
+                  ))}
+              </select>
+              {form.watch("clienteSelecionado") === "NOVO" ? (
+                <div className="mt-2 space-y-2">
+                  <input
+                    className={fieldClass}
+                    placeholder="Nome do cliente"
+                    {...form.register("novoClienteNome")}
+                  />
+                  {userRole === "SUPERADMIN" ? (
+                    <select className={fieldClass} {...form.register("novaClienteOficinaId")}>
+                      <option value="">Selecione a oficina</option>
+                      {(oficinasQuery.data ?? []).map((oficina) => (
+                        <option key={oficina.id} value={String(oficina.id)}>
+                          {oficina.nome}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </div>
+              ) : null}
+              {form.formState.errors.novoClienteNome ? (
+                <p className="mt-1 text-xs text-red-600">{String(form.formState.errors.novoClienteNome.message)}</p>
+              ) : null}
+              {form.formState.errors.novaClienteOficinaId ? (
+                <p className="mt-1 text-xs text-red-600">{String(form.formState.errors.novaClienteOficinaId.message)}</p>
+              ) : null}
             </div>
             <div>
               <label className={labelClass} htmlFor="v-status">
@@ -494,8 +578,8 @@ export function VendaRapidaForm() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="md" disabled={criarVenda.isPending || atualizarVenda.isPending}>
-            {criarVenda.isPending || atualizarVenda.isPending
+          <Button type="submit" size="md" disabled={criarVenda.isPending || atualizarVenda.isPending || criarCliente.isPending}>
+            {criarVenda.isPending || atualizarVenda.isPending || criarCliente.isPending
               ? "Salvando…"
               : vendaEditandoId
                 ? "Salvar edição"
