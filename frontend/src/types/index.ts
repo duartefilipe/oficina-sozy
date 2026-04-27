@@ -191,16 +191,34 @@ export interface OficinaResponseDto {
 export interface ClienteRequestDto {
   oficinaId?: number;
   nome: string;
+  sobrenome?: string;
+  email?: string;
+  telefone?: string;
+  dataAniversario?: string;
+  cidade?: string;
 }
 
 export interface ClienteUpdateRequestDto {
   nome: string;
+  sobrenome?: string;
+  email?: string;
+  telefone?: string;
+  dataAniversario?: string;
+  cidade?: string;
   ativo: boolean;
 }
 
 export interface ClienteResponseDto {
   id: number;
   nome: string;
+  sobrenome?: string;
+  nomeCompleto: string;
+  email?: string;
+  telefone?: string;
+  dataAniversario?: string;
+  cidade?: string;
+  oficinaId?: number;
+  oficinaNome?: string;
   ativo: boolean;
 }
 

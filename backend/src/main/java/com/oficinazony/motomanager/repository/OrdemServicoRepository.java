@@ -8,4 +8,6 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Inte
     List<OrdemServico> findByOficinaId(Integer oficinaId);
 
     List<OrdemServico> findByClienteRefIdOrderByDataAberturaDesc(Integer clienteId);
+
+    boolean existsByClienteRefId(Integer clienteId);
 }

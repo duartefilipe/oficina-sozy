@@ -53,7 +53,7 @@ public class ClienteService {
         SecurityUser current = authContextService.currentUser();
         if (current.getRole() == UserRole.SUPERADMIN) {
             return clienteRepository.findAll().stream()
-                    .sorted(Comparator.comparing(Cliente::getNome, String.CASE_INSENSITIVE_ORDER))
+                    .sorted(Comparator.comparing(Cliente::getNomeCompleto, String.CASE_INSENSITIVE_ORDER))
                     .map(this::toResponse)
                     .toList();
         }
@@ -66,25 +66,50 @@ public class ClienteService {
     @Transactional
     public ClienteResponse criar(ClienteRequest request) {
         String nomeNormalizado = normalizarNome(request.nome());
+        String sobrenomeNormalizado = normalizarTextoOpcional(request.sobrenome());
         Oficina oficina = resolveOficinaParaCriacao(request.oficinaId());
-        Cliente cliente = clienteRepository.findByOficinaIdAndNomeIgnoreCase(oficina.getId(), nomeNormalizado)
-                .orElseGet(() -> {
-                    Cliente novo = new Cliente();
-                    novo.setNome(nomeNormalizado);
-                    novo.setAtivo(true);
-                    novo.setOficina(oficina);
-                    return clienteRepository.save(novo);
-                });
-        return toResponse(cliente);
+        validarNomeUnico(oficina.getId(), nomeNormalizado, sobrenomeNormalizado, null);
+
+        Cliente cliente = new Cliente();
+        cliente.setNome(nomeNormalizado);
+        cliente.setSobrenome(sobrenomeNormalizado);
+        cliente.setAtivo(true);
+        cliente.setOficina(oficina);
+        aplicarDadosContato(cliente, request.email(), request.telefone(), request.dataAniversario(), request.cidade());
+        return toResponse(clienteRepository.save(cliente));
     }
 
     @Transactional
     public ClienteResponse atualizar(Integer id, ClienteUpdateRequest request) {
         Cliente cliente = buscarEntidadeComAcesso(id);
-        cliente.setNome(normalizarNome(request.nome()));
+        String nomeNormalizado = normalizarNome(request.nome());
+        String sobrenomeNormalizado = normalizarTextoOpcional(request.sobrenome());
+        validarNomeUnico(cliente.getOficina().getId(), nomeNormalizado, sobrenomeNormalizado, cliente.getId());
+
+        cliente.setNome(nomeNormalizado);
+        cliente.setSobrenome(sobrenomeNormalizado);
+        aplicarDadosContato(cliente, request.email(), request.telefone(), request.dataAniversario(), request.cidade());
         cliente.setAtivo(request.ativo());
         cliente.setAtualizadoEm(LocalDateTime.now());
         return toResponse(clienteRepository.save(cliente));
+    }
+
+    @Transactional
+    public void remover(Integer id) {
+        Cliente cliente = buscarEntidadeComAcesso(id);
+        boolean possuiHistorico = ordemServicoRepository.existsByClienteRefId(id) || vendaRepository.existsByClienteRefId(id);
+        if (possuiHistorico) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cliente possui historico de OS ou venda. Inative o cliente para preservar o historico."
+            );
+        }
+        clienteRepository.delete(cliente);
+    }
+
+    @Transactional(readOnly = true)
+    public ClienteResponse buscar(Integer id) {
+        return toResponse(buscarEntidadeComAcesso(id));
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +139,7 @@ public class ClienteService {
         }
         itens.sort(Comparator.comparing(ClienteHistoricoItemResponse::data).reversed());
 
-        return new ClienteHistoricoResponse(cliente.getId(), cliente.getNome(), itens);
+        return new ClienteHistoricoResponse(cliente.getId(), cliente.getNomeCompleto(), itens);
     }
 
     private Cliente buscarEntidadeComAcesso(Integer id) {
@@ -163,7 +188,49 @@ public class ClienteService {
         return n;
     }
 
+    private String normalizarTextoOpcional(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String texto = valor.trim();
+        return texto.isEmpty() ? null : texto;
+    }
+
+    private void aplicarDadosContato(
+            Cliente cliente,
+            String email,
+            String telefone,
+            java.time.LocalDate dataAniversario,
+            String cidade
+    ) {
+        cliente.setEmail(normalizarTextoOpcional(email));
+        cliente.setTelefone(normalizarTextoOpcional(telefone));
+        cliente.setDataAniversario(dataAniversario);
+        cliente.setCidade(normalizarTextoOpcional(cidade));
+    }
+
+    private void validarNomeUnico(Integer oficinaId, String nome, String sobrenome, Integer clienteAtualId) {
+        clienteRepository.findDuplicadoPorNomeCompleto(oficinaId, nome, sobrenome == null ? "" : sobrenome)
+                .ifPresent(clienteExistente -> {
+                    if (clienteAtualId == null || !clienteAtualId.equals(clienteExistente.getId())) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "Ja existe cliente com este nome nesta oficina");
+                    }
+                });
+    }
+
     private ClienteResponse toResponse(Cliente cliente) {
-        return new ClienteResponse(cliente.getId(), cliente.getNome(), cliente.isAtivo());
+        return new ClienteResponse(
+                cliente.getId(),
+                cliente.getNome(),
+                cliente.getSobrenome(),
+                cliente.getNomeCompleto(),
+                cliente.getEmail(),
+                cliente.getTelefone(),
+                cliente.getDataAniversario(),
+                cliente.getCidade(),
+                cliente.getOficina() == null ? null : cliente.getOficina().getId(),
+                cliente.getOficina() == null ? null : cliente.getOficina().getNome(),
+                cliente.isAtivo()
+        );
     }
 }

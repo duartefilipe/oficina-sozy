@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +35,12 @@ public class ClienteController {
         return clienteService.listar();
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
+    public ClienteResponse buscar(@PathVariable Integer id) {
+        return clienteService.buscar(id);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
@@ -45,6 +52,13 @@ public class ClienteController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public ClienteResponse atualizar(@PathVariable Integer id, @Valid @RequestBody ClienteUpdateRequest request) {
         return clienteService.atualizar(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
+    public void remover(@PathVariable Integer id) {
+        clienteService.remover(id);
     }
 
     @GetMapping("/{id}/historico")

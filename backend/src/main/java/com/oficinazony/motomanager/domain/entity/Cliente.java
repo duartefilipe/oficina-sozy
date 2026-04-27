@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,6 +21,21 @@ public class Cliente {
 
     @Column(nullable = false, length = 120)
     private String nome;
+
+    @Column(length = 120)
+    private String sobrenome;
+
+    @Column(length = 160)
+    private String email;
+
+    @Column(length = 30)
+    private String telefone;
+
+    @Column(name = "data_aniversario")
+    private LocalDate dataAniversario;
+
+    @Column(length = 120)
+    private String cidade;
 
     @ManyToOne
     @JoinColumn(name = "oficina_id", nullable = false)
@@ -48,6 +64,53 @@ public class Cliente {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public String getNomeCompleto() {
+        if (sobrenome == null || sobrenome.isBlank()) {
+            return nome;
+        }
+        return nome + " " + sobrenome;
+    }
+
+    public String getSobrenome() {
+        return sobrenome;
+    }
+
+    public void setSobrenome(String sobrenome) {
+        this.sobrenome = sobrenome;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getTelefone() {
+        return telefone;
+    }
+
+    public void setTelefone(String telefone) {
+        this.telefone = telefone;
+    }
+
+    public LocalDate getDataAniversario() {
+        return dataAniversario;
+    }
+
+    public void setDataAniversario(LocalDate dataAniversario) {
+        this.dataAniversario = dataAniversario;
+    }
+
+    public String getCidade() {
+        return cidade;
+    }
+
+    public void setCidade(String cidade) {
+        this.cidade = cidade;
     }
 
     public Oficina getOficina() {
