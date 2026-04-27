@@ -20,8 +20,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class RelatorioService {
@@ -50,15 +52,26 @@ public class RelatorioService {
     }
 
     @Transactional(readOnly = true)
-    public RelatorioResumoResponse resumo(LocalDate dataInicio, LocalDate dataFim) {
+    public RelatorioResumoResponse resumo(LocalDate dataInicio, LocalDate dataFim, Integer oficinaIdFiltro) {
         SecurityUser current = authContextService.currentUser();
 
-        List<Venda> vendas = current.getRole() == UserRole.SUPERADMIN
-                ? vendaRepository.findAll()
-                : (current.getOficinaId() == null ? List.of() : vendaRepository.findByOficinaId(current.getOficinaId()));
-        List<OrdemServico> ordens = current.getRole() == UserRole.SUPERADMIN
-                ? ordemServicoRepository.findAll()
-                : (current.getOficinaId() == null ? List.of() : ordemServicoRepository.findByOficinaId(current.getOficinaId()));
+        List<Venda> vendas;
+        List<OrdemServico> ordens;
+        if (current.getRole() == UserRole.SUPERADMIN) {
+            if (oficinaIdFiltro != null) {
+                vendas = vendaRepository.findByOficinaId(oficinaIdFiltro);
+                ordens = ordemServicoRepository.findByOficinaId(oficinaIdFiltro);
+            } else {
+                vendas = vendaRepository.findAll();
+                ordens = ordemServicoRepository.findAll();
+            }
+        } else {
+            if (oficinaIdFiltro != null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Apenas SUPERADMIN pode filtrar por oficina");
+            }
+            vendas = current.getOficinaId() == null ? List.of() : vendaRepository.findByOficinaId(current.getOficinaId());
+            ordens = current.getOficinaId() == null ? List.of() : ordemServicoRepository.findByOficinaId(current.getOficinaId());
+        }
 
         if (dataInicio != null) {
             vendas = vendas.stream()

@@ -3,7 +3,7 @@ import { buscarResumoRelatorio, type RelatorioFiltroPeriodo } from "@/features/r
 
 export function useResumoRelatorio(filtro?: RelatorioFiltroPeriodo) {
   return useQuery({
-    queryKey: ["relatorio-resumo", filtro?.dataInicio ?? null, filtro?.dataFim ?? null],
+    queryKey: ["relatorio-resumo", filtro?.dataInicio ?? null, filtro?.dataFim ?? null, filtro?.oficinaId ?? null],
     queryFn: () => buscarResumoRelatorio(filtro)
   });
 }

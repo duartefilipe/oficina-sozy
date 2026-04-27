@@ -23,8 +23,9 @@ public class RelatorioController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','USUARIO')")
     public RelatorioResumoResponse resumo(
             @RequestParam(required = false) LocalDate dataInicio,
-            @RequestParam(required = false) LocalDate dataFim
+            @RequestParam(required = false) LocalDate dataFim,
+            @RequestParam(required = false) Integer oficinaId
     ) {
-        return relatorioService.resumo(dataInicio, dataFim);
+        return relatorioService.resumo(dataInicio, dataFim, oficinaId);
     }
 }
