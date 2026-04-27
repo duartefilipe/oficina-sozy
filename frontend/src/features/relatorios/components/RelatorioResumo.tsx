@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useResumoRelatorio } from "@/features/relatorios/hooks";
 import { useOficinas } from "@/features/oficinas/hooks";
-import { exportarRelatorioResumoPdf } from "@/features/relatorios/pdf";
+import { exportarRelatorioResumoPdf, type GraficoPdfCaptura } from "@/features/relatorios/pdf";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fieldClass, labelClass } from "@/lib/form-styles";
@@ -73,6 +73,32 @@ const CHART_COLORS = {
   slate: "#64748b"
 };
 
+/** Aguarda Recharts desenhar SVG nos painéis (evita delay fixo longo). */
+async function aguardarGraficosProntos(root: HTMLElement | null, timeoutMs = 700) {
+  if (!root) return;
+  const deadline = Date.now() + timeoutMs;
+  const paineis = () =>
+    Array.from(root.querySelectorAll<HTMLElement>("[data-rel-grafico-panel]")).filter(
+      (el) => el.dataset.relGraficoExcluir !== "1"
+    );
+  while (Date.now() < deadline) {
+    const lista = paineis();
+    if (lista.length === 0) return;
+    const prontos = lista.every((el) => {
+      const svg = el.querySelector("svg");
+      return svg != null && svg.getBoundingClientRect().width >= 40;
+    });
+    if (prontos) return;
+    await new Promise((r) => setTimeout(r, 40));
+  }
+}
+
+async function aguardarProximoQuadro() {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
 export function RelatorioResumo() {
   const userRole = typeof window !== "undefined" ? localStorage.getItem("auth_user_role") : null;
   const isSuperadmin = userRole === "SUPERADMIN";
@@ -99,6 +125,59 @@ export function RelatorioResumo() {
     const id = Number(oficinaId);
     return oficinasQuery.data?.find((o) => o.id === id)?.nome;
   }, [oficinaId, oficinasQuery.data]);
+
+  const relatorioGraficosRef = useRef<HTMLDivElement>(null);
+  const [abaRelatorio, setAbaRelatorio] = useState<"visao" | "financeiro" | "operacional">("visao");
+  const [exportandoPdf, setExportandoPdf] = useState(false);
+
+  const exportarPdfComGraficos = useCallback(async () => {
+    const resumo = query.data;
+    if (!resumo || exportandoPdf) return;
+    setExportandoPdf(true);
+    const abaAnterior = abaRelatorio;
+    const graficos: GraficoPdfCaptura[] = [];
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const root = relatorioGraficosRef.current;
+      const ordemAbas: ("visao" | "financeiro" | "operacional")[] = ["visao", "financeiro", "operacional"];
+
+      for (const aba of ordemAbas) {
+        setAbaRelatorio(aba);
+        await aguardarProximoQuadro();
+        await aguardarGraficosProntos(root, 750);
+        const paineis = root?.querySelectorAll<HTMLElement>("[data-rel-grafico-panel]");
+        if (!paineis?.length) continue;
+        for (const el of Array.from(paineis)) {
+          if (el.dataset.relGraficoExcluir === "1") continue;
+          const titulo = el.dataset.graficoTitulo?.trim() || "Gráfico";
+          const canvas = await html2canvas(el, {
+            scale: 1.5,
+            useCORS: true,
+            logging: false,
+            backgroundColor: "#ffffff",
+            scrollX: 0,
+            scrollY: 0
+          });
+          graficos.push({ titulo, dataUrl: canvas.toDataURL("image/jpeg", 0.72) });
+        }
+      }
+
+      await exportarRelatorioResumoPdf(resumo, {
+        dataInicio: filtro.dataInicio,
+        dataFim: filtro.dataFim,
+        oficinaNome: oficinaNomeExport,
+        graficos
+      });
+    } catch (err) {
+      console.error(err);
+      if (typeof window !== "undefined") {
+        window.alert("Não foi possível gerar o PDF com os gráficos. Tente novamente.");
+      }
+    } finally {
+      setAbaRelatorio(abaAnterior);
+      setExportandoPdf(false);
+    }
+  }, [abaRelatorio, exportandoPdf, filtro.dataFim, filtro.dataInicio, oficinaNomeExport, query.data]);
 
   const aplicarPreset = (preset: "mes" | "mesAnterior" | "90d" | "ano" | "limpar") => {
     const ref = hojeLocal();
@@ -168,15 +247,10 @@ export function RelatorioResumo() {
           variant="outline"
           size="md"
           className="shrink-0 border-slate-300"
-          onClick={() =>
-            exportarRelatorioResumoPdf(r, {
-              dataInicio: filtro.dataInicio,
-              dataFim: filtro.dataFim,
-              oficinaNome: oficinaNomeExport
-            })
-          }
+          disabled={exportandoPdf}
+          onClick={() => void exportarPdfComGraficos()}
         >
-          Exportar PDF
+          {exportandoPdf ? "Gerando PDF…" : "Exportar PDF"}
         </Button>
       </header>
 
@@ -234,12 +308,22 @@ export function RelatorioResumo() {
         </div>
       </div>
 
-      <RelatorioConteudo r={r} />
+      <div ref={relatorioGraficosRef}>
+        <RelatorioConteudo r={r} aba={abaRelatorio} onAbaChange={setAbaRelatorio} />
+      </div>
     </section>
   );
 }
 
-function RelatorioConteudo({ r }: { r: RelatorioResumoDto }) {
+function RelatorioConteudo({
+  r,
+  aba,
+  onAbaChange
+}: {
+  r: RelatorioResumoDto;
+  aba: "visao" | "financeiro" | "operacional";
+  onAbaChange: (v: "visao" | "financeiro" | "operacional") => void;
+}) {
   const pieReceita = [
     { nome: "Vendas", valor: r.receitaVendas, fill: CHART_COLORS.blue },
     { nome: "OS", valor: r.receitaOrdensServico, fill: CHART_COLORS.green }
@@ -283,7 +367,7 @@ function RelatorioConteudo({ r }: { r: RelatorioResumoDto }) {
   ];
 
   return (
-    <Tabs defaultValue="visao" className="space-y-6">
+    <Tabs value={aba} onValueChange={(v) => onAbaChange(v as "visao" | "financeiro" | "operacional")} className="space-y-6">
       <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-slate-100/90 p-1.5">
         <TabsTrigger value="visao" className="rounded-lg data-[state=active]:shadow-md">
           Visão geral
@@ -446,7 +530,7 @@ function RelatorioConteudo({ r }: { r: RelatorioResumoDto }) {
             </ResponsiveContainer>
           </ChartShell>
 
-          <ChartShell titulo="Alertas operacionais" subtitulo="Acompanhe fila e pendências">
+          <ChartShell titulo="Alertas operacionais" subtitulo="Acompanhe fila e pendências" excluirDoPdf>
             <ul className="space-y-3 px-1 py-2 text-sm text-slate-700">
               <li className="flex justify-between rounded-lg bg-amber-50 px-3 py-2 ring-1 ring-amber-200/60">
                 <span>Vendas pendentes</span>
@@ -487,9 +571,24 @@ function KpiCard({
   );
 }
 
-function ChartShell({ titulo, subtitulo, children }: { titulo: string; subtitulo?: string; children: ReactNode }) {
+function ChartShell({
+  titulo,
+  subtitulo,
+  children,
+  excluirDoPdf
+}: {
+  titulo: string;
+  subtitulo?: string;
+  children: ReactNode;
+  excluirDoPdf?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
+    <div
+      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/5"
+      data-rel-grafico-panel
+      data-grafico-titulo={titulo}
+      data-rel-grafico-excluir={excluirDoPdf ? "1" : undefined}
+    >
       <p className="text-sm font-semibold text-slate-900">{titulo}</p>
       {subtitulo ? <p className="mb-3 text-xs text-slate-500">{subtitulo}</p> : <div className="mb-2" />}
       {children}

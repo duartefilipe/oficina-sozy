@@ -57,7 +57,7 @@ function UserViewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" className="absolute inset-0 bg-slate-900/50" aria-label="Fechar" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xl ring-1 ring-slate-900/5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">Usuário #{user.id}</h3>
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
@@ -94,7 +94,7 @@ export function UserManagement() {
 
   if (userRole === "USUARIO") {
     return (
-      <section className="mx-auto mt-6 max-w-5xl rounded-lg border border-slate-200 bg-white p-6">
+      <section className="mx-auto mt-6 max-w-5xl rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm ring-1 ring-slate-900/5">
         <h2 className="text-xl font-semibold">Usuarios</h2>
         <p className="text-sm text-slate-600">Seu perfil nao possui permissao para gerenciar usuarios.</p>
       </section>
@@ -193,7 +193,7 @@ export function UserManagement() {
   };
 
   return (
-    <section className="mx-auto mt-6 max-w-5xl rounded-lg border border-slate-200 bg-white p-6">
+    <section className="mx-auto mt-6 max-w-5xl rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm ring-1 ring-slate-900/5">
       <h2 className="text-xl font-semibold">Gestao de Usuarios</h2>
       <p className="mb-4 text-sm text-slate-600">
         Superadmin cria ADMIN e USUARIO e define oficina. Admin cria somente USUARIO da própria oficina.
@@ -273,7 +273,7 @@ export function UserManagement() {
 
       {editandoId ? (
         <form
-          className="mt-6 space-y-3 rounded-md border border-slate-200 p-4"
+          className="mt-6 space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 shadow-sm ring-1 ring-slate-900/5"
           onSubmit={editForm.handleSubmit(onSubmitEdicao)}
         >
           <p className="text-sm font-medium text-slate-800">Editando usuário #{editandoId}</p>
