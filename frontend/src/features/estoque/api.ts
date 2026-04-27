@@ -7,6 +7,8 @@ export async function listarProdutos() {
 }
 
 export interface ProdutoPayload {
+  /** Obrigatório para SUPERADMIN sem oficina no token (escolher oficina de destino). */
+  oficinaId?: number;
   sku?: string;
   nome: string;
   tipo: ProdutoTipo;

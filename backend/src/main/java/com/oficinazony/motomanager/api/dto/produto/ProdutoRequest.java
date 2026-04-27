@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public record ProdutoRequest(
+        /** Quando SUPERADMIN cria produto sem oficina no token, informe a oficina de destino. */
+        Integer oficinaId,
         String sku,
         @NotBlank String nome,
         @NotNull ProdutoTipo tipo,

@@ -13,12 +13,13 @@ import { fieldClass, labelClass } from "@/lib/form-styles";
 import { getApiErrorMessage } from "@/lib/utils";
 import type { ProdutoDto } from "@/types";
 
-const novaProdutoSchema = z.object({
+const novaProdutoBase = z.object({
   nome: z.string().trim().min(1, "Informe o nome do produto."),
-  tipo: z.enum(["PECA", "MOTO"])
+  tipo: z.enum(["PECA", "MOTO"]),
+  oficinaId: z.string().optional()
 });
 
-type NovaProdutoValues = z.infer<typeof novaProdutoSchema>;
+type NovaProdutoValues = z.infer<typeof novaProdutoBase>;
 
 type PainelProduto =
   | null
@@ -132,9 +133,21 @@ export function ProdutoManagement() {
   const [painel, setPainel] = useState<PainelProduto>(null);
   const [oficinaFiltro, setOficinaFiltro] = useState("");
 
+  const novaProdutoSchema = useMemo(
+    () =>
+      novaProdutoBase.superRefine((data, ctx) => {
+        if (!isSuperadmin) return;
+        const id = (data.oficinaId ?? "").trim();
+        if (!id) {
+          ctx.addIssue({ code: "custom", path: ["oficinaId"], message: "Selecione a oficina do produto." });
+        }
+      }),
+    [isSuperadmin]
+  );
+
   const formNovo = useForm<NovaProdutoValues>({
     resolver: zodResolver(novaProdutoSchema),
-    defaultValues: { nome: "", tipo: "PECA" }
+    defaultValues: { nome: "", tipo: "PECA", oficinaId: "" }
   });
 
   const produtoSelecionado = useMemo(() => {
@@ -157,10 +170,13 @@ export function ProdutoManagement() {
       precoVenda: 0,
       qtdEstoque: 0
     };
+    if (isSuperadmin && v.oficinaId?.trim()) {
+      payload.oficinaId = Number(v.oficinaId);
+    }
     criar.mutate(payload, {
       onSuccess: () => {
         setModalNovo(false);
-        formNovo.reset({ nome: "", tipo: "PECA" });
+        formNovo.reset({ nome: "", tipo: "PECA", oficinaId: isSuperadmin ? oficinaFiltro : "" });
       }
     });
   };
@@ -284,7 +300,19 @@ export function ProdutoManagement() {
           <h1 className="text-2xl font-semibold text-slate-900">Estoque</h1>
           <p className="text-sm text-slate-600">Peças e motos para usar em OS e PDV.</p>
         </div>
-        <Button type="button" size="md" className="shrink-0 self-start" onClick={() => setModalNovo(true)}>
+        <Button
+          type="button"
+          size="md"
+          className="shrink-0 self-start"
+          onClick={() => {
+            formNovo.reset({
+              nome: "",
+              tipo: "PECA",
+              oficinaId: isSuperadmin ? oficinaFiltro : ""
+            });
+            setModalNovo(true);
+          }}
+        >
           Cadastrar produto
         </Button>
       </div>
@@ -344,6 +372,24 @@ export function ProdutoManagement() {
               <option value="MOTO">MOTO</option>
             </select>
           </div>
+          {isSuperadmin ? (
+            <div>
+              <label className={labelClass} htmlFor="novo-p-oficina">
+                Oficina do produto
+              </label>
+              <select id="novo-p-oficina" className={fieldClass} {...formNovo.register("oficinaId")} disabled={oficinas.isLoading}>
+                <option value="">Selecione…</option>
+                {(oficinas.data ?? []).map((o) => (
+                  <option key={o.id} value={String(o.id)}>
+                    {o.nome}
+                  </option>
+                ))}
+              </select>
+              {formNovo.formState.errors.oficinaId ? (
+                <p className="mt-1 text-xs text-red-600">{formNovo.formState.errors.oficinaId.message}</p>
+              ) : null}
+            </div>
+          ) : null}
           <p className="text-xs text-slate-500">
             Preços e quantidade iniciam em zero. Use <strong>Editar</strong> na lista para preencher custo, venda e estoque.
           </p>
