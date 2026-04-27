@@ -8,6 +8,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useClientes } from "@/features/clientes/hooks";
 import { useCriarOrdemServico, useOrdemServico, useOrdensServico, useRemoverOrdemServico } from "@/features/oficina/hooks";
 import { OrdemServicoEditorForm } from "@/features/oficina/components/OrdemServicoEditorForm";
+import { abrirPdfOrdemServico } from "@/features/oficina/pdf";
 import { fieldClass, labelClass } from "@/lib/form-styles";
 import { getApiErrorMessage } from "@/lib/utils";
 import type { OrdemServicoRequestDto, OrdemServicoResponseDto } from "@/types";
@@ -96,6 +97,12 @@ function ResumoOrdemServico({ os, onEditar }: { os: OrdemServicoResponseDto; onE
           <dt className="text-xs font-medium uppercase text-slate-500">Cliente</dt>
           <dd>{os.cliente?.trim() ? os.cliente : "—"}</dd>
         </div>
+        {os.oficinaNome ? (
+          <div className="sm:col-span-2">
+            <dt className="text-xs font-medium uppercase text-slate-500">Oficina</dt>
+            <dd>{os.oficinaNome}</dd>
+          </div>
+        ) : null}
         <div className="sm:col-span-2">
           <dt className="text-xs font-medium uppercase text-slate-500">Total</dt>
           <dd className="text-base font-semibold">{formatBrl(os.valorTotal)}</dd>
@@ -148,6 +155,9 @@ function ResumoOrdemServico({ os, onEditar }: { os: OrdemServicoResponseDto; onE
       <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
         <Button type="button" size="md" onClick={onEditar}>
           Editar OS
+        </Button>
+        <Button type="button" variant="outline" size="md" onClick={() => abrirPdfOrdemServico(os)}>
+          Gerar PDF
         </Button>
       </div>
     </div>
@@ -235,6 +245,9 @@ export function OrdemServicoForm() {
               onClick={() => setPainel({ id: row.original.id, tela: "editar", voltarFechaModal: true })}
             >
               Editar
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => abrirPdfOrdemServico(row.original)}>
+              PDF
             </Button>
             <Button
               type="button"

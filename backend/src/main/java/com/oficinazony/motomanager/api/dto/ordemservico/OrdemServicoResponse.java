@@ -10,6 +10,8 @@ public record OrdemServicoResponse(
         String placaMoto,
         Integer clienteId,
         String cliente,
+        Integer oficinaId,
+        String oficinaNome,
         OrdemServicoStatus status,
         LocalDateTime dataAbertura,
         BigDecimal valorTotal,
