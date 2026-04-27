@@ -16,9 +16,18 @@ export async function criarCliente(payload: ClienteRequestDto) {
   return data;
 }
 
+export async function buscarCliente(id: number) {
+  const { data } = await api.get<ClienteResponseDto>(`/clientes/${id}`);
+  return data;
+}
+
 export async function atualizarCliente(id: number, payload: ClienteUpdateRequestDto) {
   const { data } = await api.put<ClienteResponseDto>(`/clientes/${id}`, payload);
   return data;
+}
+
+export async function removerCliente(id: number) {
+  await api.delete(`/clientes/${id}`);
 }
 
 export async function buscarHistoricoCliente(id: number) {

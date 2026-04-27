@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { atualizarCliente, buscarHistoricoCliente, criarCliente, listarClientes } from "@/features/clientes/api";
+import {
+  atualizarCliente,
+  buscarHistoricoCliente,
+  criarCliente,
+  listarClientes,
+  removerCliente
+} from "@/features/clientes/api";
 import type { ClienteRequestDto, ClienteUpdateRequestDto } from "@/types";
 
 export function useClientes() {
@@ -23,6 +29,16 @@ export function useAtualizarCliente() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: ClienteUpdateRequestDto }) => atualizarCliente(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+    }
+  });
+}
+
+export function useRemoverCliente() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => removerCliente(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clientes"] });
     }
